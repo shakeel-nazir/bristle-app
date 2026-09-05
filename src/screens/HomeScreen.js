@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import { useBooking } from '../context/BookingContext';
 import GlassCard from '../components/GlassCard';
 import ConfirmModal from '../components/ConfirmModal';
+import { buildGoogleCalendarUrl } from '../utils/calendar';
 
 const durations = [
   {
@@ -32,40 +33,63 @@ function getGreeting() {
 const quickServices = [
   { id: 'book', label: 'Book a Clean', icon: 'add-circle-outline' },
   { id: 'reschedule', label: 'Reschedule', icon: 'calendar-outline' },
-  { id: 'addons', label: 'Add-ons', icon: 'pricetag-outline' },
+  { id: 'legal', label: 'Legal', icon: 'document-text-outline' },
   { id: 'support', label: 'Support', icon: 'chatbubble-ellipses-outline' },
   { id: 'payment', label: 'Payment', icon: 'card-outline' },
   { id: 'refer', label: 'Refer a Friend', icon: 'gift-outline' },
 ];
 
 export default function HomeScreen({ navigation }) {
-  const { upcomingBooking, cancelBooking } = useBooking();
-  const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
+  const { upcomingBookings, cancelBooking, canBookMore } = useBooking();
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [limitVisible, setLimitVisible] = useState(false);
   const [comingSoonVisible, setComingSoonVisible] = useState(false);
 
-  const handleViewBooking = () => {
-    if (!upcomingBooking) return;
-    navigation.navigate('Confirm', { ...upcomingBooking, viewOnly: true });
+  const handleViewBooking = (booking) => {
+    navigation.navigate('Confirm', { ...booking, viewOnly: true });
   };
 
-  const handleCancelBooking = () => setCancelConfirmVisible(true);
+  const handleCancelBooking = (booking) => setCancelTarget(booking);
+
+  const handleAddToCalendar = (booking) => {
+    if (!booking.rawDate) return;
+    const url = buildGoogleCalendarUrl({
+      rawDate: booking.rawDate,
+      time: booking.time,
+      service: booking.service,
+      address: booking.address,
+    });
+    Linking.openURL(url);
+  };
 
   const confirmCancelBooking = () => {
-    cancelBooking();
-    setCancelConfirmVisible(false);
+    if (cancelTarget) cancelBooking(cancelTarget.id);
+    setCancelTarget(null);
+  };
+
+  const startBooking = (durationHours, price) => {
+    if (!canBookMore) {
+      setLimitVisible(true);
+      return;
+    }
+    navigation.navigate('TaskBuilder', { durationHours, price });
   };
 
   const handleQuickService = (id) => {
     if (id === 'book') {
-      navigation.navigate('TaskBuilder', { durationHours: durations[0].hours, price: durations[0].price });
+      startBooking(durations[0].hours, durations[0].price);
       return;
     }
     if (id === 'reschedule') {
-      if (upcomingBooking) {
-        navigation.navigate('Booking', { service: upcomingBooking.service });
+      if (upcomingBookings.length > 0) {
+        navigation.navigate('Booking', { service: upcomingBookings[0].service });
       } else {
-        navigation.navigate('TaskBuilder', { durationHours: durations[0].hours, price: durations[0].price });
+        startBooking(durations[0].hours, durations[0].price);
       }
+      return;
+    }
+    if (id === 'legal') {
+      navigation.navigate('Legal');
       return;
     }
     setComingSoonVisible(true);
@@ -87,55 +111,46 @@ export default function HomeScreen({ navigation }) {
           {getGreeting()}, <Text style={styles.greetingBold}>Andrew</Text>
         </Text>
         <Text style={styles.subGreeting}>How can we help?</Text>
-
-        {upcomingBooking && (
-          <GlassCard style={styles.statusPill} intensity={30} onPress={handleViewBooking}>
-            <View style={styles.statusPillInner}>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusBadgeText}>1</Text>
-              </View>
-              <Text style={styles.statusPillText}>You have a clean scheduled</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-            </View>
-          </GlassCard>
-        )}
       </View>
 
       <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent}>
-        {upcomingBooking ? (
-          <GlassCard style={styles.upcomingCard} intensity={45}>
-            <View style={styles.upcomingInner}>
-              <View style={styles.upcomingHeaderRow}>
-                <View style={styles.upcomingIcon}>
-                  <Ionicons name="calendar" size={18} color={colors.accent} />
+        {upcomingBookings.length > 0 ? (
+          upcomingBookings.map((booking) => (
+            <GlassCard key={booking.id} style={styles.upcomingCard} intensity={45}>
+              <View style={styles.upcomingInner}>
+                <View style={styles.upcomingHeaderRow}>
+                  <View style={styles.upcomingIcon}>
+                    <Ionicons name="calendar" size={18} color={colors.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.upcomingTitle}>Upcoming clean</Text>
+                    <Text style={styles.upcomingSubtitle}>
+                      {booking.date} · {booking.time}
+                    </Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.upcomingTitle}>Upcoming clean</Text>
-                  <Text style={styles.upcomingSubtitle}>
-                    {upcomingBooking.date} · {upcomingBooking.time}
-                  </Text>
+                <View style={styles.upcomingFooterRow}>
+                  <Text style={styles.upcomingServiceName}>{booking.service.name}</Text>
+                  <Pressable style={styles.viewBookingButton} onPress={() => handleViewBooking(booking)}>
+                    <Text style={styles.viewBookingText}>View Booking</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.linkRow}>
+                  <Pressable onPress={() => handleAddToCalendar(booking)}>
+                    <Text style={styles.calendarLinkText}>Add to Calendar</Text>
+                  </Pressable>
+                  <Pressable onPress={() => handleCancelBooking(booking)}>
+                    <Text style={styles.cancelLinkText}>Cancel booking</Text>
+                  </Pressable>
                 </View>
               </View>
-              <View style={styles.upcomingFooterRow}>
-                <View>
-                  <Text style={styles.upcomingServiceName}>{upcomingBooking.service.name}</Text>
-                  <Text style={styles.upcomingPrice}>${upcomingBooking.deposit?.toFixed(2)} deposit paid</Text>
-                  <Text style={styles.upcomingBalance}>${upcomingBooking.balance?.toFixed(2)} due after clean</Text>
-                </View>
-                <Pressable style={styles.viewBookingButton} onPress={handleViewBooking}>
-                  <Text style={styles.viewBookingText}>View Booking</Text>
-                </Pressable>
-              </View>
-              <Pressable style={styles.cancelLink} onPress={handleCancelBooking}>
-                <Text style={styles.cancelLinkText}>Cancel booking</Text>
-              </Pressable>
-            </View>
-          </GlassCard>
+            </GlassCard>
+          ))
         ) : (
           <GlassCard
             style={styles.nextCard}
             intensity={45}
-            onPress={() => navigation.navigate('TaskBuilder', { durationHours: durations[0].hours, price: durations[0].price })}
+            onPress={() => startBooking(durations[0].hours, durations[0].price)}
           >
             <View style={styles.nextInner}>
               <View style={styles.nextIcon}>
@@ -158,7 +173,7 @@ export default function HomeScreen({ navigation }) {
               key={option.id}
               style={styles.serviceCard}
               intensity={45}
-              onPress={() => navigation.navigate('TaskBuilder', { durationHours: option.hours, price: option.price })}
+              onPress={() => startBooking(option.hours, option.price)}
             >
               <View style={styles.serviceInner}>
                 <View style={styles.serviceIconWrap}>
@@ -197,18 +212,26 @@ export default function HomeScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {upcomingBooking && (
+      {cancelTarget && (
         <ConfirmModal
-          visible={cancelConfirmVisible}
+          visible={!!cancelTarget}
           title="Cancel booking?"
-          message={`This will cancel your ${upcomingBooking.service.name.toLowerCase()} on ${upcomingBooking.date}.`}
-          onRequestClose={() => setCancelConfirmVisible(false)}
+          message={`This will cancel your ${cancelTarget.service.name.toLowerCase()} on ${cancelTarget.date}.`}
+          onRequestClose={() => setCancelTarget(null)}
           buttons={[
-            { text: 'Keep booking', style: 'cancel', onPress: () => setCancelConfirmVisible(false) },
+            { text: 'Keep booking', style: 'cancel', onPress: () => setCancelTarget(null) },
             { text: 'Cancel booking', style: 'destructive', onPress: confirmCancelBooking },
           ]}
         />
       )}
+
+      <ConfirmModal
+        visible={limitVisible}
+        title="Booking limit reached"
+        message="You can have up to 2 scheduled cleans at a time. Cancel one to book another."
+        onRequestClose={() => setLimitVisible(false)}
+        buttons={[{ text: 'OK', onPress: () => setLimitVisible(false) }]}
+      />
 
       <ConfirmModal
         visible={comingSoonVisible}
@@ -252,36 +275,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     opacity: 0.7,
     marginTop: 2,
-  },
-  statusPill: {
-    borderRadius: radius.lg,
-    marginTop: spacing.lg,
-  },
-  statusPillInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  statusBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  statusPillText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.primary,
   },
   sheet: {
     flex: 1,
@@ -356,23 +349,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   upcomingServiceName: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
-  upcomingPrice: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.primary,
-    marginTop: 2,
-  },
-  upcomingBalance: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  cancelLink: {
-    alignSelf: 'flex-start',
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: spacing.md,
+  },
+  calendarLinkText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.accent,
   },
   cancelLinkText: {
     fontSize: 12,

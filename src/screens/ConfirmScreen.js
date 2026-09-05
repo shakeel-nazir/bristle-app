@@ -9,11 +9,12 @@ import { getPriceBreakdown, HST_RATE } from '../utils/pricing';
 
 export default function ConfirmScreen({ route, navigation }) {
   const { service, date, time, rawDate, address, viewOnly } = route.params;
-  const { setUpcomingBooking } = useBooking();
+  const { addBooking, canBookMore } = useBooking();
   const { subtotal, tax, total, deposit, balance } = getPriceBreakdown(service.price);
 
   const handleConfirm = () => {
-    setUpcomingBooking({ service, date, time, rawDate, address, subtotal, tax, total, deposit, balance });
+    if (!canBookMore) return;
+    addBooking({ service, date, time, rawDate, address, subtotal, tax, total, deposit, balance });
     navigation.navigate('Success', { service, date, time, rawDate, address, deposit, balance });
   };
 
@@ -61,8 +62,18 @@ export default function ConfirmScreen({ route, navigation }) {
           </View>
         </GlassCard>
 
+        {!viewOnly && !canBookMore && (
+          <Text style={styles.limitText}>
+            You've reached the max of 2 scheduled cleans. Cancel one from home to book another.
+          </Text>
+        )}
+
         {!viewOnly && (
-          <Pressable style={styles.button} onPress={handleConfirm}>
+          <Pressable
+            style={[styles.button, !canBookMore && styles.buttonDisabled]}
+            onPress={handleConfirm}
+            disabled={!canBookMore}
+          >
             <Text style={styles.buttonText}>Pay ${deposit.toFixed(2)} deposit</Text>
           </Pressable>
         )}
@@ -148,12 +159,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: 6,
   },
+  limitText: {
+    fontSize: 12,
+    color: '#A32D2D',
+    textAlign: 'center',
+    marginTop: spacing.lg,
+  },
   button: {
     backgroundColor: colors.accent,
     borderRadius: radius.md,
     padding: spacing.md,
     alignItems: 'center',
     marginTop: spacing.lg,
+  },
+  buttonDisabled: {
+    backgroundColor: colors.border,
   },
   buttonText: {
     color: colors.accentText,

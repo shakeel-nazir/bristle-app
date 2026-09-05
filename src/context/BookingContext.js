@@ -2,13 +2,29 @@ import React, { createContext, useContext, useState } from 'react';
 
 const BookingContext = createContext(null);
 
-export function BookingProvider({ children }) {
-  const [upcomingBooking, setUpcomingBooking] = useState(null);
+export const MAX_BOOKINGS = 2;
 
-  const cancelBooking = () => setUpcomingBooking(null);
+export function BookingProvider({ children }) {
+  const [upcomingBookings, setUpcomingBookings] = useState([]);
+
+  const addBooking = (booking) => {
+    let added = false;
+    setUpcomingBookings((prev) => {
+      if (prev.length >= MAX_BOOKINGS) return prev;
+      added = true;
+      return [...prev, { id: `${Date.now()}`, ...booking }];
+    });
+    return added;
+  };
+
+  const cancelBooking = (id) => {
+    setUpcomingBookings((prev) => prev.filter((b) => b.id !== id));
+  };
+
+  const canBookMore = upcomingBookings.length < MAX_BOOKINGS;
 
   return (
-    <BookingContext.Provider value={{ upcomingBooking, setUpcomingBooking, cancelBooking }}>
+    <BookingContext.Provider value={{ upcomingBookings, addBooking, cancelBooking, canBookMore }}>
       {children}
     </BookingContext.Provider>
   );
