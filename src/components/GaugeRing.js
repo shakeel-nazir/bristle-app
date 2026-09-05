@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { colors } from '../theme/theme';
 
@@ -8,9 +8,33 @@ const STROKE = 16;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export default function GaugeRing({ progress, label, sublabel }) {
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+export default function GaugeRing({ progress, sublabel }) {
   const clamped = Math.max(0, Math.min(1, progress));
-  const offset = CIRCUMFERENCE * (1 - clamped);
+  const animatedProgress = useRef(new Animated.Value(0)).current;
+  const [displayPercent, setDisplayPercent] = useState(0);
+
+  useEffect(() => {
+    const listenerId = animatedProgress.addListener(({ value }) => {
+      setDisplayPercent(Math.round(value * 100));
+    });
+    return () => animatedProgress.removeListener(listenerId);
+  }, [animatedProgress]);
+
+  useEffect(() => {
+    Animated.timing(animatedProgress, {
+      toValue: clamped,
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [clamped, animatedProgress]);
+
+  const strokeDashoffset = animatedProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [CIRCUMFERENCE, 0],
+  });
 
   return (
     <View style={styles.wrap}>
@@ -30,7 +54,7 @@ export default function GaugeRing({ progress, label, sublabel }) {
           strokeWidth={STROKE}
           fill="none"
         />
-        <Circle
+        <AnimatedCircle
           cx={SIZE / 2}
           cy={SIZE / 2}
           r={RADIUS}
@@ -38,14 +62,14 @@ export default function GaugeRing({ progress, label, sublabel }) {
           strokeWidth={STROKE}
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}
-          strokeDashoffset={offset}
+          strokeDashoffset={strokeDashoffset}
           fill="none"
           rotation="-90"
           origin={`${SIZE / 2}, ${SIZE / 2}`}
         />
       </Svg>
       <View style={styles.center} pointerEvents="none">
-        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.label}>{displayPercent}%</Text>
         {sublabel ? <Text style={styles.sublabel}>{sublabel}</Text> : null}
       </View>
     </View>

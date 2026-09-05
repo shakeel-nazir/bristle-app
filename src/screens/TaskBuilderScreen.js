@@ -85,7 +85,6 @@ export default function TaskBuilderScreen({ route, navigation }) {
 
         <GaugeRing
           progress={totalMinutes / capMinutes}
-          label={`${Math.round((totalMinutes / capMinutes) * 100)}%`}
           sublabel={`${formatMinutes(totalMinutes)} of ${formatMinutes(capMinutes)}`}
         />
 

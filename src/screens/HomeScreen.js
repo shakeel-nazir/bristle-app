@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   },
   brand: {
     fontFamily: 'Fredoka_700Bold',
-    fontSize: 44,
+    fontSize: 64,
     color: colors.primary,
     width: '100%',
     marginBottom: spacing.lg,
