@@ -35,6 +35,7 @@ export default function App() {
                 open: { animation: 'timing', config: { duration: 380 } },
                 close: { animation: 'timing', config: { duration: 320 } },
               },
+              cardStyle: { flex: 1 },
             }}
           >
             <Stack.Screen name="Home" component={HomeScreen} />
