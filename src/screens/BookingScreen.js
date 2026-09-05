@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 
 const timeSlots = ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'];
@@ -32,8 +33,12 @@ export default function BookingScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+        <Ionicons name="arrow-back" size={20} color={colors.primary} />
+      </Pressable>
+
       <Text style={styles.title}>{service.name}</Text>
-      <Text style={styles.price}>From ${service.price}</Text>
+      <Text style={styles.price}>From ${service.price} · {service.duration}</Text>
 
       <Text style={styles.sectionLabel}>Choose a date</Text>
       <View style={styles.row}>
@@ -89,7 +94,16 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: 64,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
   },
   title: {
     fontSize: 22,
