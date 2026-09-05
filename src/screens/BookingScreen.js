@@ -58,6 +58,7 @@ export default function BookingScreen({ route, navigation }) {
     navigation.navigate('Confirm', {
       service,
       date: formatDate(selectedDate),
+      rawDate: selectedDate.toISOString(),
       time: selectedTime,
       address,
     });

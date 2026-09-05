@@ -22,6 +22,13 @@ const durations = [
   },
 ];
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 11) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 const quickServices = [
   { id: 'book', label: 'Book a Clean', icon: 'add-circle-outline' },
   { id: 'reschedule', label: 'Reschedule', icon: 'calendar-outline' },
@@ -77,9 +84,9 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.brand}>bristle</Text>
 
         <Text style={styles.greeting}>
-          Good morning, <Text style={styles.greetingBold}>Andrew</Text>
+          {getGreeting()}, <Text style={styles.greetingBold}>Andrew</Text>
         </Text>
-        <Text style={styles.subGreeting}>What needs cleaning today?</Text>
+        <Text style={styles.subGreeting}>How can we help?</Text>
 
         {upcomingBooking && (
           <GlassCard style={styles.statusPill} intensity={30} onPress={handleViewBooking}>

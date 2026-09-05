@@ -5,16 +5,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import { useBooking } from '../context/BookingContext';
 import GlassCard from '../components/GlassCard';
-import { getDepositBreakdown } from '../utils/pricing';
+import { getPriceBreakdown, HST_RATE } from '../utils/pricing';
 
 export default function ConfirmScreen({ route, navigation }) {
-  const { service, date, time, address, viewOnly } = route.params;
+  const { service, date, time, rawDate, address, viewOnly } = route.params;
   const { setUpcomingBooking } = useBooking();
-  const { deposit, balance } = getDepositBreakdown(service.price);
+  const { subtotal, tax, total, deposit, balance } = getPriceBreakdown(service.price);
 
   const handleConfirm = () => {
-    setUpcomingBooking({ service, date, time, address, deposit, balance });
-    navigation.navigate('Success', { service, date, time, deposit, balance });
+    setUpcomingBooking({ service, date, time, rawDate, address, subtotal, tax, total, deposit, balance });
+    navigation.navigate('Success', { service, date, time, rawDate, address, deposit, balance });
   };
 
   return (
@@ -27,13 +27,18 @@ export default function ConfirmScreen({ route, navigation }) {
       />
 
       <View style={styles.content}>
-        {viewOnly && (
+        <View style={styles.headerRow}>
           <GlassCard style={styles.backButton} intensity={30} onPress={() => navigation.goBack()}>
             <View style={styles.backButtonInner}>
               <Ionicons name="arrow-back" size={20} color={colors.primary} />
             </View>
           </GlassCard>
-        )}
+          {!viewOnly && (
+            <Pressable onPress={() => navigation.popToTop()}>
+              <Text style={styles.cancelLink}>Cancel</Text>
+            </Pressable>
+          )}
+        </View>
 
         <Text style={styles.title}>{viewOnly ? 'Your booking' : 'Confirm booking'}</Text>
 
@@ -47,7 +52,10 @@ export default function ConfirmScreen({ route, navigation }) {
             <Row label="Time" value={time} />
             <Row label="Address" value={address} />
             <View style={styles.divider} />
-            <Row label="Total" value={`$${service.price.toFixed(2)}`} />
+            <Row label="Subtotal" value={`$${subtotal.toFixed(2)}`} />
+            <Row label={`HST (${Math.round(HST_RATE * 100)}%, Ontario)`} value={`$${tax.toFixed(2)}`} />
+            <Row label="Total" value={`$${total.toFixed(2)}`} />
+            <View style={styles.divider} />
             <Row label="Deposit due now (50%)" value={`$${deposit.toFixed(2)}`} bold />
             <Row label="Balance due after clean" value={`$${balance.toFixed(2)}`} />
           </View>
@@ -82,16 +90,26 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingTop: 64,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
   backButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    marginBottom: spacing.lg,
   },
   backButtonInner: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cancelLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#A32D2D',
   },
   title: {
     fontSize: 22,

@@ -17,6 +17,26 @@ function isInOttawa(result) {
   return result.display_name.toLowerCase().includes('ottawa');
 }
 
+function getStreetLine(result) {
+  const a = result.address || {};
+  if (a.house_number && a.road) return `${a.house_number} ${a.road}`;
+  if (a.road) return a.road;
+  return result.display_name.split(',')[0];
+}
+
+function getAreaLine(result) {
+  const a = result.address || {};
+  const city = a.city || a.town || a.village || a.municipality;
+  const neighbourhood = a.neighbourhood || a.suburb;
+  return [neighbourhood, city].filter(Boolean).join(', ');
+}
+
+function getShortAddress(result) {
+  const street = getStreetLine(result);
+  const city = result.address?.city || result.address?.town || result.address?.village || result.address?.municipality;
+  return city ? `${street}, ${city}` : street;
+}
+
 export default function AddressAutocomplete({ value, onChangeText, onValidChange, placeholder }) {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -81,7 +101,7 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
 
   const handleSelect = (result) => {
     skipNextFetch.current = true;
-    onChangeText(result.display_name);
+    onChangeText(getShortAddress(result));
     setIsValid(true);
     onValidChange?.(true);
     setSuggestions([]);
@@ -137,9 +157,14 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
                   style={[styles.suggestionRow, index < suggestions.length - 1 && styles.suggestionRowBorder]}
                   onPress={() => handleSelect(item)}
                 >
-                  <Text style={styles.suggestionText} numberOfLines={2}>
-                    {item.display_name}
+                  <Text style={styles.suggestionStreet} numberOfLines={1}>
+                    {getStreetLine(item)}
                   </Text>
+                  {getAreaLine(item) ? (
+                    <Text style={styles.suggestionArea} numberOfLines={1}>
+                      {getAreaLine(item)}
+                    </Text>
+                  ) : null}
                 </Pressable>
               ))
             )}
@@ -204,8 +229,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  suggestionText: {
+  suggestionStreet: {
     fontSize: 13,
+    fontWeight: '600',
     color: colors.text,
+  },
+  suggestionArea: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
 });

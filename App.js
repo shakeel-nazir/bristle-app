@@ -22,7 +22,13 @@ export default function App() {
   return (
     <BookingProvider>
       <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            animationDuration: 380,
+          }}
+        >
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="TaskBuilder" component={TaskBuilderScreen} />
           <Stack.Screen name="Booking" component={BookingScreen} />

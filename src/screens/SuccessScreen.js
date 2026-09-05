@@ -1,9 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
 import { colors, spacing, radius } from '../theme/theme';
+import { buildGoogleCalendarUrl } from '../utils/calendar';
 
 export default function SuccessScreen({ route, navigation }) {
-  const { service, date, time, deposit, balance } = route.params;
+  const { service, date, time, rawDate, address, deposit, balance } = route.params;
+
+  const handleAddToCalendar = () => {
+    if (!rawDate) return;
+    const url = buildGoogleCalendarUrl({ rawDate, time, service, address });
+    Linking.openURL(url);
+  };
 
   return (
     <View style={styles.container}>
@@ -13,6 +20,12 @@ export default function SuccessScreen({ route, navigation }) {
         Your {service.name.toLowerCase()} is set for {date} at {time}. We've charged your ${deposit.toFixed(2)} deposit
         — the ${balance.toFixed(2)} balance is due after the clean. We will text you when your cleaner is on the way.
       </Text>
+
+      {rawDate && (
+        <Pressable style={styles.calendarButton} onPress={handleAddToCalendar}>
+          <Text style={styles.calendarButtonText}>Add to Calendar</Text>
+        </Pressable>
+      )}
 
       <Pressable
         style={styles.button}
@@ -48,6 +61,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.lg,
+  },
+  calendarButton: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  calendarButtonText: {
+    color: colors.accent,
+    fontSize: 15,
+    fontWeight: '600',
   },
   button: {
     backgroundColor: colors.accent,

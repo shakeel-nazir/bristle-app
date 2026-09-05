@@ -106,6 +106,7 @@ export default function MonthCalendar({ selectedDate, onSelectDate, isDateAvaila
                     styles.dayText,
                     !inMonth && styles.dayTextOutside,
                     isPast && inMonth && styles.dayTextPast,
+                    inMonth && !isPast && !available && styles.dayTextUnavailable,
                     isSelected && styles.dayTextSelected,
                   ]}
                 >
@@ -196,6 +197,10 @@ const styles = StyleSheet.create({
   dayTextPast: {
     color: colors.textSecondary,
     opacity: 0.5,
+  },
+  dayTextUnavailable: {
+    color: colors.border,
+    textDecorationLine: 'line-through',
   },
   dayTextSelected: {
     color: '#FFFFFF',
