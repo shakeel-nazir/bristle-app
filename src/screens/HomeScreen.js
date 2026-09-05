@@ -106,6 +106,7 @@ export default function HomeScreen({ navigation }) {
 
       <View style={styles.header}>
         <Text style={styles.brand}>bristle</Text>
+        <Text style={styles.tagline}>You decide what gets cleaned</Text>
 
         <Text style={styles.greeting}>
           {getGreeting()}, <Text style={styles.greetingBold}>Andrew</Text>
@@ -180,7 +181,6 @@ export default function HomeScreen({ navigation }) {
                   <Ionicons name={option.icon} size={22} color={colors.primary} />
                 </View>
                 <Text style={styles.serviceName}>{option.hours} Hours</Text>
-                <Text style={styles.serviceDescription}>You decide what gets cleaned</Text>
                 <View style={styles.servicePriceRow}>
                   <Text style={styles.servicePrice}>${option.price}</Text>
                   <View style={styles.serviceArrow}>
@@ -259,8 +259,14 @@ const styles = StyleSheet.create({
     fontSize: 64,
     color: colors.primary,
     width: '100%',
-    marginBottom: spacing.lg,
     letterSpacing: -0.5,
+  },
+  tagline: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.accent,
+    marginTop: -6,
+    marginBottom: spacing.lg,
   },
   greeting: {
     fontSize: 24,
@@ -412,12 +418,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
-  },
-  serviceDescription: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    lineHeight: 15,
   },
   servicePriceRow: {
     flexDirection: 'row',
