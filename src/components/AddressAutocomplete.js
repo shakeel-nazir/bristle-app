@@ -8,6 +8,15 @@ const SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 const DEBOUNCE_MS = 400;
 const MIN_QUERY_LENGTH = 3;
 
+// Ottawa's city boundary, roughly (left,top,right,bottom = minLon,maxLat,maxLon,minLat).
+const OTTAWA_VIEWBOX = '-76.3556,45.5376,-75.2465,44.9617';
+
+function isInOttawa(result) {
+  const city = result.address?.city || result.address?.town || result.address?.village || result.address?.municipality;
+  if (city) return city.toLowerCase() === 'ottawa';
+  return result.display_name.toLowerCase().includes('ottawa');
+}
+
 export default function AddressAutocomplete({ value, onChangeText, onValidChange, placeholder }) {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -41,14 +50,17 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
           format: 'json',
           q: value,
           addressdetails: '1',
-          limit: '5',
+          limit: '10',
+          countrycodes: 'ca',
+          viewbox: OTTAWA_VIEWBOX,
+          bounded: '1',
         });
         const response = await fetch(`${SEARCH_URL}?${params.toString()}`, {
           signal: controller.signal,
           headers: { Accept: 'application/json' },
         });
         const results = await response.json();
-        setSuggestions(results);
+        setSuggestions(results.filter(isInOttawa).slice(0, 5));
       } catch (err) {
         if (err.name !== 'AbortError') setSuggestions([]);
       } finally {
@@ -76,8 +88,9 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
     setFocused(false);
   };
 
-  const showDropdown = focused && (loading || suggestions.length > 0);
-  const showUnverifiedHint = !isValid && !focused && !loading && value.trim().length >= MIN_QUERY_LENGTH;
+  const hasSearched = !loading && value.trim().length >= MIN_QUERY_LENGTH;
+  const showDropdown = focused && (loading || suggestions.length > 0 || hasSearched);
+  const showUnverifiedHint = !isValid && !focused && hasSearched;
 
   return (
     <View>
@@ -102,7 +115,7 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
         <Text style={styles.validText}>Verified address</Text>
       )}
       {showUnverifiedHint && (
-        <Text style={styles.hintText}>Select an address from the list to continue</Text>
+        <Text style={styles.hintText}>Select an Ottawa address from the list to continue</Text>
       )}
 
       {showDropdown && (
@@ -112,6 +125,10 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
               <View style={styles.statusRow}>
                 <ActivityIndicator size="small" color={colors.accent} />
                 <Text style={styles.statusText}>Searching addresses…</Text>
+              </View>
+            ) : suggestions.length === 0 ? (
+              <View style={styles.statusRow}>
+                <Text style={styles.statusText}>We only serve Ottawa right now — no matches found.</Text>
               </View>
             ) : (
               suggestions.map((item, index) => (
