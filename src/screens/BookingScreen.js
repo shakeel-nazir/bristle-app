@@ -2,18 +2,42 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
+import MonthCalendar from '../components/MonthCalendar';
 
 const timeSlots = ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'];
-const dates = ['Today', 'Tomorrow', 'Thu, Sep 10', 'Fri, Sep 11'];
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+function formatDate(date) {
+  return `${WEEKDAY_SHORT[date.getDay()]}, ${MONTH_SHORT[date.getMonth()]} ${date.getDate()}`;
+}
+
+// Cleaners aren't available on Sundays.
+function isDateAvailable(date) {
+  return date.getDay() !== 0;
+}
 
 export default function BookingScreen({ route, navigation }) {
   const { service } = route.params;
-  const [selectedDate, setSelectedDate] = useState(dates[0]);
+  const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [address, setAddress] = useState('');
   const [error, setError] = useState('');
 
+  const handleSelectDate = (date) => {
+    setSelectedDate(date);
+    setSelectedTime(null);
+    if (error) setError('');
+  };
+
   const handleContinue = () => {
+    if (!selectedDate) {
+      setError('Pick a date first');
+      return;
+    }
     if (!selectedTime) {
       setError('Pick a time slot first');
       return;
@@ -25,7 +49,7 @@ export default function BookingScreen({ route, navigation }) {
     setError('');
     navigation.navigate('Confirm', {
       service,
-      date: selectedDate,
+      date: formatDate(selectedDate),
       time: selectedTime,
       address,
     });
@@ -41,29 +65,35 @@ export default function BookingScreen({ route, navigation }) {
       <Text style={styles.price}>From ${service.price} · {service.duration}</Text>
 
       <Text style={styles.sectionLabel}>Choose a date</Text>
-      <View style={styles.row}>
-        {dates.map((d) => (
-          <Pressable
-            key={d}
-            style={[styles.chip, selectedDate === d && styles.chipSelected]}
-            onPress={() => setSelectedDate(d)}
-          >
-            <Text style={[styles.chipText, selectedDate === d && styles.chipTextSelected]}>{d}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <MonthCalendar
+        selectedDate={selectedDate}
+        onSelectDate={handleSelectDate}
+        isDateAvailable={isDateAvailable}
+      />
 
-      <Text style={styles.sectionLabel}>Choose a time</Text>
-      <View style={styles.row}>
-        {timeSlots.map((t) => (
-          <Pressable
-            key={t}
-            style={[styles.chip, selectedTime === t && styles.chipSelected]}
-            onPress={() => setSelectedTime(t)}
-          >
-            <Text style={[styles.chipText, selectedTime === t && styles.chipTextSelected]}>{t}</Text>
-          </Pressable>
-        ))}
+      <Text style={styles.sectionLabel}>Available times</Text>
+      <View style={styles.timesCard}>
+        {selectedDate ? (
+          <>
+            <Text style={styles.timesForDate}>{formatDate(selectedDate)}</Text>
+            <View style={styles.row}>
+              {timeSlots.map((t) => (
+                <Pressable
+                  key={t}
+                  style={[styles.chip, selectedTime === t && styles.chipSelected]}
+                  onPress={() => {
+                    setSelectedTime(t);
+                    if (error) setError('');
+                  }}
+                >
+                  <Text style={[styles.chipText, selectedTime === t && styles.chipTextSelected]}>{t}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : (
+          <Text style={styles.timesEmpty}>Pick a date to see open slots</Text>
+        )}
       </View>
 
       <Text style={styles.sectionLabel}>Address</Text>
@@ -121,6 +151,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     marginTop: spacing.md,
   },
+  timesCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+  },
+  timesForDate: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  timesEmpty: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -129,7 +174,7 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.card,
+    backgroundColor: colors.cardMuted,
     borderRadius: radius.sm,
     paddingVertical: 8,
     paddingHorizontal: 14,
