@@ -5,8 +5,10 @@ const BookingContext = createContext(null);
 export function BookingProvider({ children }) {
   const [upcomingBooking, setUpcomingBooking] = useState(null);
 
+  const cancelBooking = () => setUpcomingBooking(null);
+
   return (
-    <BookingContext.Provider value={{ upcomingBooking, setUpcomingBooking }}>
+    <BookingContext.Provider value={{ upcomingBooking, setUpcomingBooking, cancelBooking }}>
       {children}
     </BookingContext.Provider>
   );

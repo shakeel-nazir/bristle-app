@@ -3,14 +3,15 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { colors, spacing, radius } from '../theme/theme';
 
 export default function SuccessScreen({ route, navigation }) {
-  const { service, date, time } = route.params;
+  const { service, date, time, deposit, balance } = route.params;
 
   return (
     <View style={styles.container}>
       <Text style={styles.check}>✓</Text>
       <Text style={styles.title}>Booking confirmed</Text>
       <Text style={styles.subtitle}>
-        Your {service.name.toLowerCase()} is set for {date} at {time}. We will text you when your cleaner is on the way.
+        Your {service.name.toLowerCase()} is set for {date} at {time}. We've charged your ${deposit.toFixed(2)} deposit
+        — the ${balance.toFixed(2)} balance is due after the clean. We will text you when your cleaner is on the way.
       </Text>
 
       <Pressable

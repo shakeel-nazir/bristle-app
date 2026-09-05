@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useFonts, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 
 import HomeScreen from './src/screens/HomeScreen';
 import BookingScreen from './src/screens/BookingScreen';
@@ -11,6 +12,12 @@ import { BookingProvider } from './src/context/BookingContext';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const [fontsLoaded] = useFonts({ Fredoka_700Bold });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <BookingProvider>
       <NavigationContainer>

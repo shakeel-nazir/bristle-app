@@ -5,14 +5,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import { useBooking } from '../context/BookingContext';
 import GlassCard from '../components/GlassCard';
+import { getDepositBreakdown } from '../utils/pricing';
 
 export default function ConfirmScreen({ route, navigation }) {
   const { service, date, time, address, viewOnly } = route.params;
   const { setUpcomingBooking } = useBooking();
+  const { deposit, balance } = getDepositBreakdown(service.price);
 
   const handleConfirm = () => {
-    setUpcomingBooking({ service, date, time, address });
-    navigation.navigate('Success', { service, date, time });
+    setUpcomingBooking({ service, date, time, address, deposit, balance });
+    navigation.navigate('Success', { service, date, time, deposit, balance });
   };
 
   return (
@@ -42,13 +44,15 @@ export default function ConfirmScreen({ route, navigation }) {
             <Row label="Time" value={time} />
             <Row label="Address" value={address} />
             <View style={styles.divider} />
-            <Row label="Total" value={`$${service.price}`} bold />
+            <Row label="Total" value={`$${service.price.toFixed(2)}`} />
+            <Row label="Deposit due now (50%)" value={`$${deposit.toFixed(2)}`} bold />
+            <Row label="Balance due after clean" value={`$${balance.toFixed(2)}`} />
           </View>
         </GlassCard>
 
         {!viewOnly && (
           <Pressable style={styles.button} onPress={handleConfirm}>
-            <Text style={styles.buttonText}>Confirm and pay</Text>
+            <Text style={styles.buttonText}>Pay ${deposit.toFixed(2)} deposit</Text>
           </Pressable>
         )}
       </View>

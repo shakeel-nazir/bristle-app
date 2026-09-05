@@ -22,6 +22,9 @@
     },
     "experiments": {
       "baseUrl": "/bristle-app"
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

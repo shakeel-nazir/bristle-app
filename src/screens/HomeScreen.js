@@ -1,10 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import { useBooking } from '../context/BookingContext';
 import GlassCard from '../components/GlassCard';
+import ConfirmModal from '../components/ConfirmModal';
 
 const services = [
   {
@@ -35,11 +36,20 @@ const quickServices = [
 ];
 
 export default function HomeScreen({ navigation }) {
-  const { upcomingBooking } = useBooking();
+  const { upcomingBooking, cancelBooking } = useBooking();
+  const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
+  const [comingSoonVisible, setComingSoonVisible] = useState(false);
 
   const handleViewBooking = () => {
     if (!upcomingBooking) return;
     navigation.navigate('Confirm', { ...upcomingBooking, viewOnly: true });
+  };
+
+  const handleCancelBooking = () => setCancelConfirmVisible(true);
+
+  const confirmCancelBooking = () => {
+    cancelBooking();
+    setCancelConfirmVisible(false);
   };
 
   const handleQuickService = (id) => {
@@ -51,7 +61,7 @@ export default function HomeScreen({ navigation }) {
       navigation.navigate('Booking', { service: upcomingBooking?.service ?? services[0] });
       return;
     }
-    Alert.alert('Coming soon', "This isn't wired up yet.");
+    setComingSoonVisible(true);
   };
 
   return (
@@ -64,17 +74,7 @@ export default function HomeScreen({ navigation }) {
       />
 
       <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={styles.brandRow}>
-            <LinearGradient colors={colors.logoGradient} style={styles.logo} />
-            <Text style={styles.brand}>Bristle</Text>
-          </View>
-          <GlassCard style={styles.iconButton} intensity={30}>
-            <View style={styles.iconButtonInner}>
-              <Ionicons name="person-outline" size={16} color={colors.primary} />
-            </View>
-          </GlassCard>
-        </View>
+        <Text style={styles.brand}>bristle</Text>
 
         <Text style={styles.greeting}>
           Good morning, <Text style={styles.greetingBold}>Andrew</Text>
@@ -112,12 +112,16 @@ export default function HomeScreen({ navigation }) {
               <View style={styles.upcomingFooterRow}>
                 <View>
                   <Text style={styles.upcomingServiceName}>{upcomingBooking.service.name}</Text>
-                  <Text style={styles.upcomingPrice}>${upcomingBooking.service.price}</Text>
+                  <Text style={styles.upcomingPrice}>${upcomingBooking.deposit?.toFixed(2)} deposit paid</Text>
+                  <Text style={styles.upcomingBalance}>${upcomingBooking.balance?.toFixed(2)} due after clean</Text>
                 </View>
                 <Pressable style={styles.viewBookingButton} onPress={handleViewBooking}>
                   <Text style={styles.viewBookingText}>View Booking</Text>
                 </Pressable>
               </View>
+              <Pressable style={styles.cancelLink} onPress={handleCancelBooking}>
+                <Text style={styles.cancelLinkText}>Cancel booking</Text>
+              </Pressable>
             </View>
           </GlassCard>
         ) : (
@@ -186,6 +190,27 @@ export default function HomeScreen({ navigation }) {
           ))}
         </View>
       </ScrollView>
+
+      {upcomingBooking && (
+        <ConfirmModal
+          visible={cancelConfirmVisible}
+          title="Cancel booking?"
+          message={`This will cancel your ${upcomingBooking.service.name.toLowerCase()} on ${upcomingBooking.date}.`}
+          onRequestClose={() => setCancelConfirmVisible(false)}
+          buttons={[
+            { text: 'Keep booking', style: 'cancel', onPress: () => setCancelConfirmVisible(false) },
+            { text: 'Cancel booking', style: 'destructive', onPress: confirmCancelBooking },
+          ]}
+        />
+      )}
+
+      <ConfirmModal
+        visible={comingSoonVisible}
+        title="Coming soon"
+        message="This isn't wired up yet."
+        onRequestClose={() => setComingSoonVisible(false)}
+        buttons={[{ text: 'OK', onPress: () => setComingSoonVisible(false) }]}
+      />
     </View>
   );
 }
@@ -200,36 +225,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logo: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginRight: spacing.sm,
-  },
   brand: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontFamily: 'Fredoka_700Bold',
+    fontSize: 44,
     color: colors.primary,
-  },
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-  },
-  iconButtonInner: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: '100%',
+    marginBottom: spacing.lg,
+    letterSpacing: -0.5,
   },
   greeting: {
     fontSize: 24,
@@ -352,10 +354,24 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   upcomingPrice: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
     color: colors.primary,
     marginTop: 2,
+  },
+  upcomingBalance: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  cancelLink: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.md,
+  },
+  cancelLinkText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#A32D2D',
   },
   viewBookingButton: {
     backgroundColor: colors.primary,
