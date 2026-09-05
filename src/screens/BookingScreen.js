@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import MonthCalendar from '../components/MonthCalendar';
+import AddressAutocomplete from '../components/AddressAutocomplete';
 
 const timeSlots = ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'];
 
@@ -97,10 +98,8 @@ export default function BookingScreen({ route, navigation }) {
       </View>
 
       <Text style={styles.sectionLabel}>Address</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter your address"
-        placeholderTextColor={colors.textSecondary}
+      <AddressAutocomplete
+        placeholder="Start typing your address"
         value={address}
         onChangeText={(text) => {
           setAddress(text);
@@ -189,15 +188,6 @@ const styles = StyleSheet.create({
   },
   chipTextSelected: {
     color: colors.background,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    borderRadius: radius.sm,
-    padding: spacing.md,
-    fontSize: 14,
-    color: colors.text,
   },
   error: {
     color: '#A32D2D',
