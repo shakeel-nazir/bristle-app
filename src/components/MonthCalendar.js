@@ -110,7 +110,6 @@ export default function MonthCalendar({ selectedDate, onSelectDate, isDateAvaila
                   {date.getDate()}
                 </Text>
               </View>
-              {available ? <View style={[styles.dot, isSelected && styles.dotSelected]} /> : <View style={styles.dotPlaceholder} />}
             </Pressable>
           );
         })}
@@ -197,20 +196,5 @@ const styles = StyleSheet.create({
   dayTextSelected: {
     color: '#FFFFFF',
     fontWeight: '700',
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.accent,
-    marginTop: 2,
-  },
-  dotSelected: {
-    backgroundColor: colors.primary,
-  },
-  dotPlaceholder: {
-    width: 4,
-    height: 4,
-    marginTop: 2,
   },
 });
