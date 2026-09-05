@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
@@ -37,6 +37,23 @@ const quickServices = [
 export default function HomeScreen({ navigation }) {
   const { upcomingBooking } = useBooking();
 
+  const handleViewBooking = () => {
+    if (!upcomingBooking) return;
+    navigation.navigate('Confirm', { ...upcomingBooking, viewOnly: true });
+  };
+
+  const handleQuickService = (id) => {
+    if (id === 'book') {
+      navigation.navigate('Booking', { service: services[0] });
+      return;
+    }
+    if (id === 'reschedule') {
+      navigation.navigate('Booking', { service: upcomingBooking?.service ?? services[0] });
+      return;
+    }
+    Alert.alert('Coming soon', "This isn't wired up yet.");
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -65,7 +82,7 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.subGreeting}>What needs cleaning today?</Text>
 
         {upcomingBooking && (
-          <GlassCard style={styles.statusPill} intensity={30}>
+          <GlassCard style={styles.statusPill} intensity={30} onPress={handleViewBooking}>
             <View style={styles.statusPillInner}>
               <View style={styles.statusBadge}>
                 <Text style={styles.statusBadgeText}>1</Text>
@@ -97,14 +114,18 @@ export default function HomeScreen({ navigation }) {
                   <Text style={styles.upcomingServiceName}>{upcomingBooking.service.name}</Text>
                   <Text style={styles.upcomingPrice}>${upcomingBooking.service.price}</Text>
                 </View>
-                <Pressable style={styles.viewBookingButton}>
+                <Pressable style={styles.viewBookingButton} onPress={handleViewBooking}>
                   <Text style={styles.viewBookingText}>View Booking</Text>
                 </Pressable>
               </View>
             </View>
           </GlassCard>
         ) : (
-          <GlassCard style={styles.nextCard} intensity={45}>
+          <GlassCard
+            style={styles.nextCard}
+            intensity={45}
+            onPress={() => navigation.navigate('Booking', { service: services[0] })}
+          >
             <View style={styles.nextInner}>
               <View style={styles.nextIcon}>
                 <Ionicons name="calendar-outline" size={18} color={colors.accent} />
@@ -149,7 +170,12 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.sectionLabel}>Services</Text>
         <View style={styles.quickGrid}>
           {quickServices.map((item) => (
-            <GlassCard key={item.id} style={styles.quickItem} intensity={40}>
+            <GlassCard
+              key={item.id}
+              style={styles.quickItem}
+              intensity={40}
+              onPress={() => handleQuickService(item.id)}
+            >
               <View style={styles.quickInner}>
                 <View style={styles.quickIconWrap}>
                   <Ionicons name={item.icon} size={20} color={colors.primary} />

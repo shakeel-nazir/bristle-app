@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
+import GlassCard from './GlassCard';
 
 const WEEKDAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 const MONTH_NAMES = [
@@ -60,7 +61,8 @@ export default function MonthCalendar({ selectedDate, onSelectDate, isDateAvaila
   const goNext = () => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1));
 
   return (
-    <View style={styles.card}>
+    <GlassCard style={styles.card} intensity={45}>
+      <View style={styles.cardInner}>
       <View style={styles.header}>
         <Pressable
           onPress={goPrev}
@@ -114,7 +116,8 @@ export default function MonthCalendar({ selectedDate, onSelectDate, isDateAvaila
           );
         })}
       </View>
-    </View>
+      </View>
+    </GlassCard>
   );
 }
 
@@ -122,8 +125,9 @@ const CELL_SIZE = 40;
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
     borderRadius: radius.lg,
+  },
+  cardInner: {
     padding: spacing.md,
   },
   header: {
@@ -143,7 +147,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.cardMuted,
+    backgroundColor: 'rgba(255,255,255,0.5)',
   },
   navButtonDisabled: {
     opacity: 0.4,

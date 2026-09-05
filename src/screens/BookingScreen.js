@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import MonthCalendar from '../components/MonthCalendar';
 import AddressAutocomplete from '../components/AddressAutocomplete';
+import GlassCard from '../components/GlassCard';
 
 const timeSlots = ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'];
 
@@ -26,6 +28,7 @@ export default function BookingScreen({ route, navigation }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [address, setAddress] = useState('');
+  const [addressValid, setAddressValid] = useState(false);
   const [error, setError] = useState('');
 
   const handleSelectDate = (date) => {
@@ -47,6 +50,10 @@ export default function BookingScreen({ route, navigation }) {
       setError('Enter your address');
       return;
     }
+    if (!addressValid) {
+      setError('Select an address from the suggestions list to continue');
+      return;
+    }
     setError('');
     navigation.navigate('Confirm', {
       service,
@@ -57,62 +64,79 @@ export default function BookingScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={20} color={colors.primary} />
-      </Pressable>
-
-      <Text style={styles.title}>{service.name}</Text>
-      <Text style={styles.price}>From ${service.price} · {service.duration}</Text>
-
-      <Text style={styles.sectionLabel}>Choose a date</Text>
-      <MonthCalendar
-        selectedDate={selectedDate}
-        onSelectDate={handleSelectDate}
-        isDateAvailable={isDateAvailable}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={colors.pageGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.3, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
       />
 
-      <Text style={styles.sectionLabel}>Available times</Text>
-      <View style={styles.timesCard}>
-        {selectedDate ? (
-          <>
-            <Text style={styles.timesForDate}>{formatDate(selectedDate)}</Text>
-            <View style={styles.row}>
-              {timeSlots.map((t) => (
-                <Pressable
-                  key={t}
-                  style={[styles.chip, selectedTime === t && styles.chipSelected]}
-                  onPress={() => {
-                    setSelectedTime(t);
-                    if (error) setError('');
-                  }}
-                >
-                  <Text style={[styles.chipText, selectedTime === t && styles.chipTextSelected]}>{t}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </>
-        ) : (
-          <Text style={styles.timesEmpty}>Pick a date to see open slots</Text>
-        )}
-      </View>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <GlassCard style={styles.backButton} intensity={30} onPress={() => navigation.goBack()}>
+          <View style={styles.backButtonInner}>
+            <Ionicons name="arrow-back" size={20} color={colors.primary} />
+          </View>
+        </GlassCard>
 
-      <Text style={styles.sectionLabel}>Address</Text>
-      <AddressAutocomplete
-        placeholder="Start typing your address"
-        value={address}
-        onChangeText={(text) => {
-          setAddress(text);
-          if (error) setError('');
-        }}
-      />
+        <Text style={styles.title}>{service.name}</Text>
+        <Text style={styles.price}>From ${service.price} · {service.duration}</Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+        <Text style={styles.sectionLabel}>Choose a date</Text>
+        <MonthCalendar
+          selectedDate={selectedDate}
+          onSelectDate={handleSelectDate}
+          isDateAvailable={isDateAvailable}
+        />
 
-      <Pressable style={styles.button} onPress={handleContinue}>
-        <Text style={styles.buttonText}>Continue</Text>
-      </Pressable>
-    </ScrollView>
+        <Text style={styles.sectionLabel}>Available times</Text>
+        <GlassCard style={styles.timesCard} intensity={45}>
+          <View style={styles.timesInner}>
+            {selectedDate ? (
+              <>
+                <Text style={styles.timesForDate}>{formatDate(selectedDate)}</Text>
+                <View style={styles.row}>
+                  {timeSlots.map((t) => (
+                    <Pressable
+                      key={t}
+                      style={[styles.chip, selectedTime === t && styles.chipSelected]}
+                      onPress={() => {
+                        setSelectedTime(t);
+                        if (error) setError('');
+                      }}
+                    >
+                      <Text style={[styles.chipText, selectedTime === t && styles.chipTextSelected]}>{t}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <Text style={styles.timesEmpty}>Pick a date to see open slots</Text>
+            )}
+          </View>
+        </GlassCard>
+
+        <Text style={styles.sectionLabel}>Address</Text>
+        <AddressAutocomplete
+          placeholder="Start typing your address"
+          value={address}
+          onChangeText={(text) => {
+            setAddress(text);
+            if (error) setError('');
+          }}
+          onValidChange={(valid) => {
+            setAddressValid(valid);
+            if (error) setError('');
+          }}
+        />
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <Pressable style={styles.button} onPress={handleContinue}>
+          <Text style={styles.buttonText}>Continue</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -120,6 +144,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
     padding: spacing.lg,
@@ -129,10 +156,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.card,
+    marginBottom: spacing.lg,
+  },
+  backButtonInner: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
   },
   title: {
     fontSize: 22,
@@ -151,8 +180,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   timesCard: {
-    backgroundColor: colors.card,
     borderRadius: radius.lg,
+  },
+  timesInner: {
     padding: spacing.md,
   },
   timesForDate: {
@@ -173,7 +203,7 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.cardMuted,
+    backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: radius.sm,
     paddingVertical: 8,
     paddingHorizontal: 14,

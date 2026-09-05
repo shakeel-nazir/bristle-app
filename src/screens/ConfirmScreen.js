@@ -1,10 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import { useBooking } from '../context/BookingContext';
+import GlassCard from '../components/GlassCard';
 
 export default function ConfirmScreen({ route, navigation }) {
-  const { service, date, time, address } = route.params;
+  const { service, date, time, address, viewOnly } = route.params;
   const { setUpcomingBooking } = useBooking();
 
   const handleConfirm = () => {
@@ -14,20 +17,41 @@ export default function ConfirmScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Confirm booking</Text>
+      <LinearGradient
+        colors={colors.pageGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.3, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-      <View style={styles.card}>
-        <Row label="Service" value={service.name} />
-        <Row label="Date" value={date} />
-        <Row label="Time" value={time} />
-        <Row label="Address" value={address} />
-        <View style={styles.divider} />
-        <Row label="Total" value={`$${service.price}`} bold />
+      <View style={styles.content}>
+        {viewOnly && (
+          <GlassCard style={styles.backButton} intensity={30} onPress={() => navigation.goBack()}>
+            <View style={styles.backButtonInner}>
+              <Ionicons name="arrow-back" size={20} color={colors.primary} />
+            </View>
+          </GlassCard>
+        )}
+
+        <Text style={styles.title}>{viewOnly ? 'Your booking' : 'Confirm booking'}</Text>
+
+        <GlassCard style={styles.card} intensity={45}>
+          <View style={styles.cardInner}>
+            <Row label="Service" value={service.name} />
+            <Row label="Date" value={date} />
+            <Row label="Time" value={time} />
+            <Row label="Address" value={address} />
+            <View style={styles.divider} />
+            <Row label="Total" value={`$${service.price}`} bold />
+          </View>
+        </GlassCard>
+
+        {!viewOnly && (
+          <Pressable style={styles.button} onPress={handleConfirm}>
+            <Text style={styles.buttonText}>Confirm and pay</Text>
+          </Pressable>
+        )}
       </View>
-
-      <Pressable style={styles.button} onPress={handleConfirm}>
-        <Text style={styles.buttonText}>Confirm and pay</Text>
-      </Pressable>
     </View>
   );
 }
@@ -45,8 +69,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  content: {
+    flex: 1,
     padding: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: 64,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginBottom: spacing.lg,
+  },
+  backButtonInner: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 22,
@@ -55,10 +93,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: radius.md,
+  },
+  cardInner: {
     padding: spacing.md,
   },
   row: {
