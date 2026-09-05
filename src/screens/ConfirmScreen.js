@@ -39,7 +39,10 @@ export default function ConfirmScreen({ route, navigation }) {
 
         <GlassCard style={styles.card} intensity={45}>
           <View style={styles.cardInner}>
-            <Row label="Service" value={service.name} />
+            <Row label="Package" value={service.name} />
+            {service.tasks?.length > 0 && (
+              <Row label="Tasks" value={service.tasks.map((t) => t.label).join(', ')} />
+            )}
             <Row label="Date" value={date} />
             <Row label="Time" value={time} />
             <Row label="Address" value={address} />

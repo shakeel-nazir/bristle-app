@@ -7,21 +7,17 @@ import { useBooking } from '../context/BookingContext';
 import GlassCard from '../components/GlassCard';
 import ConfirmModal from '../components/ConfirmModal';
 
-const services = [
+const durations = [
   {
-    id: 'normal',
-    name: 'Normal Clean',
+    id: '2h',
+    hours: 2,
     price: 89,
-    duration: '~2 hrs',
-    description: 'Dusting, vacuuming, kitchen & bathrooms — regular upkeep',
     icon: 'sparkles-outline',
   },
   {
-    id: 'super',
-    name: 'Super Clean',
+    id: '4h',
+    hours: 4,
     price: 159,
-    duration: '~4 hrs',
-    description: 'Deep clean inside appliances, baseboards, windows & more',
     icon: 'flash-outline',
   },
 ];
@@ -54,11 +50,15 @@ export default function HomeScreen({ navigation }) {
 
   const handleQuickService = (id) => {
     if (id === 'book') {
-      navigation.navigate('Booking', { service: services[0] });
+      navigation.navigate('TaskBuilder', { durationHours: durations[0].hours, price: durations[0].price });
       return;
     }
     if (id === 'reschedule') {
-      navigation.navigate('Booking', { service: upcomingBooking?.service ?? services[0] });
+      if (upcomingBooking) {
+        navigation.navigate('Booking', { service: upcomingBooking.service });
+      } else {
+        navigation.navigate('TaskBuilder', { durationHours: durations[0].hours, price: durations[0].price });
+      }
       return;
     }
     setComingSoonVisible(true);
@@ -128,7 +128,7 @@ export default function HomeScreen({ navigation }) {
           <GlassCard
             style={styles.nextCard}
             intensity={45}
-            onPress={() => navigation.navigate('Booking', { service: services[0] })}
+            onPress={() => navigation.navigate('TaskBuilder', { durationHours: durations[0].hours, price: durations[0].price })}
           >
             <View style={styles.nextInner}>
               <View style={styles.nextIcon}>
@@ -143,25 +143,24 @@ export default function HomeScreen({ navigation }) {
           </GlassCard>
         )}
 
-        <Text style={styles.sectionLabel}>Choose a clean</Text>
+        <Text style={styles.sectionLabel}>Choose your time</Text>
 
         <View style={styles.grid}>
-          {services.map((service) => (
+          {durations.map((option) => (
             <GlassCard
-              key={service.id}
+              key={option.id}
               style={styles.serviceCard}
               intensity={45}
-              onPress={() => navigation.navigate('Booking', { service })}
+              onPress={() => navigation.navigate('TaskBuilder', { durationHours: option.hours, price: option.price })}
             >
               <View style={styles.serviceInner}>
                 <View style={styles.serviceIconWrap}>
-                  <Ionicons name={service.icon} size={22} color={colors.primary} />
+                  <Ionicons name={option.icon} size={22} color={colors.primary} />
                 </View>
-                <Text style={styles.serviceName}>{service.name}</Text>
-                <Text style={styles.serviceDuration}>{service.duration}</Text>
-                <Text style={styles.serviceDescription}>{service.description}</Text>
+                <Text style={styles.serviceName}>{option.hours} Hours</Text>
+                <Text style={styles.serviceDescription}>You decide what gets cleaned</Text>
                 <View style={styles.servicePriceRow}>
-                  <Text style={styles.servicePrice}>From ${service.price}</Text>
+                  <Text style={styles.servicePrice}>${option.price}</Text>
                   <View style={styles.serviceArrow}>
                     <Ionicons name="arrow-forward" size={14} color={colors.accentText} />
                   </View>
@@ -417,11 +416,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
-  },
-  serviceDuration: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 1,
   },
   serviceDescription: {
     fontSize: 11,

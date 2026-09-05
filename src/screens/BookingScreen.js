@@ -80,7 +80,19 @@ export default function BookingScreen({ route, navigation }) {
         </GlassCard>
 
         <Text style={styles.title}>{service.name}</Text>
-        <Text style={styles.price}>From ${service.price} · {service.duration}</Text>
+        <Text style={styles.price}>${service.price} · {service.duration}</Text>
+
+        {service.tasks?.length > 0 && (
+          <GlassCard style={styles.tasksCard} intensity={45}>
+            <View style={styles.tasksInner}>
+              {service.tasks.map((task) => (
+                <View key={task.id} style={styles.taskChip}>
+                  <Text style={styles.taskChipText}>{task.label}</Text>
+                </View>
+              ))}
+            </View>
+          </GlassCard>
+        )}
 
         <Text style={styles.sectionLabel}>Choose a date</Text>
         <MonthCalendar
@@ -171,7 +183,28 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 14,
     color: colors.accent,
+    marginBottom: spacing.md,
+  },
+  tasksCard: {
+    borderRadius: radius.lg,
     marginBottom: spacing.lg,
+  },
+  tasksInner: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  taskChip: {
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: radius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+  },
+  taskChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
   },
   sectionLabel: {
     fontSize: 13,
