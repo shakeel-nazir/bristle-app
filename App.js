@@ -2,7 +2,7 @@ import 'react-native-gesture-handler';
 import React from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
+import { createStackNavigator, TransitionPresets, CardStyleInterpolators } from '@react-navigation/stack';
 import { useFonts, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 
 import HomeScreen from './src/screens/HomeScreen';
@@ -37,7 +37,11 @@ export default function App() {
             }}
           >
             <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="TaskBuilder" component={TaskBuilderScreen} />
+            <Stack.Screen
+              name="TaskBuilder"
+              component={TaskBuilderScreen}
+              options={{ cardStyleInterpolator: CardStyleInterpolators.forFade }}
+            />
             <Stack.Screen name="Booking" component={BookingScreen} />
             <Stack.Screen name="Confirm" component={ConfirmScreen} />
             <Stack.Screen name="Success" component={SuccessScreen} />
