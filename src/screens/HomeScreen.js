@@ -8,21 +8,6 @@ import GlassCard from '../components/GlassCard';
 import ConfirmModal from '../components/ConfirmModal';
 import { buildGoogleCalendarUrl } from '../utils/calendar';
 
-const durations = [
-  {
-    id: '2h',
-    hours: 2,
-    price: 89,
-    icon: 'sparkles-outline',
-  },
-  {
-    id: '4h',
-    hours: 4,
-    price: 159,
-    icon: 'flash-outline',
-  },
-];
-
 function getGreeting() {
   const hour = new Date().getHours();
   if (hour < 11) return 'Good morning';
@@ -67,24 +52,24 @@ export default function HomeScreen({ navigation }) {
     setCancelTarget(null);
   };
 
-  const startBooking = (durationHours, price) => {
+  const startBooking = () => {
     if (!canBookMore) {
       setLimitVisible(true);
       return;
     }
-    navigation.navigate('TaskBuilder', { durationHours, price });
+    navigation.navigate('Duration');
   };
 
   const handleQuickService = (id) => {
     if (id === 'book') {
-      startBooking(durations[0].hours, durations[0].price);
+      startBooking();
       return;
     }
     if (id === 'reschedule') {
       if (upcomingBookings.length > 0) {
         navigation.navigate('Booking', { service: upcomingBookings[0].service });
       } else {
-        startBooking(durations[0].hours, durations[0].price);
+        startBooking();
       }
       return;
     }
@@ -151,7 +136,7 @@ export default function HomeScreen({ navigation }) {
           <GlassCard
             style={styles.nextCard}
             intensity={45}
-            onPress={() => startBooking(durations[0].hours, durations[0].price)}
+            onPress={() => startBooking()}
           >
             <View style={styles.nextInner}>
               <View style={styles.nextIcon}>
@@ -166,31 +151,20 @@ export default function HomeScreen({ navigation }) {
           </GlassCard>
         )}
 
-        <Text style={styles.sectionLabel}>Choose your time</Text>
-
-        <View style={styles.grid}>
-          {durations.map((option) => (
-            <GlassCard
-              key={option.id}
-              style={styles.serviceCard}
-              intensity={45}
-              onPress={() => startBooking(option.hours, option.price)}
-            >
-              <View style={styles.serviceInner}>
-                <View style={styles.serviceIconWrap}>
-                  <Ionicons name={option.icon} size={22} color={colors.primary} />
-                </View>
-                <Text style={styles.serviceName}>{option.hours} Hours</Text>
-                <View style={styles.servicePriceRow}>
-                  <Text style={styles.servicePrice}>${option.price}</Text>
-                  <View style={styles.serviceArrow}>
-                    <Ionicons name="arrow-forward" size={14} color={colors.accentText} />
-                  </View>
-                </View>
-              </View>
-            </GlassCard>
-          ))}
-        </View>
+        <GlassCard style={styles.startCard} intensity={45} onPress={() => startBooking()}>
+          <View style={styles.startInner}>
+            <View style={styles.startIconWrap}>
+              <Ionicons name="sparkles-outline" size={22} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.startTitle}>Let's get started</Text>
+              <Text style={styles.startSubtitle}>Pick your time on the next step</Text>
+            </View>
+            <View style={styles.serviceArrow}>
+              <Ionicons name="arrow-forward" size={16} color={colors.accentText} />
+            </View>
+          </View>
+        </GlassCard>
 
         <Text style={styles.sectionLabel}>Services</Text>
         <View style={styles.quickGrid}>
@@ -393,42 +367,33 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  grid: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+  startCard: {
+    borderRadius: radius.lg,
     marginBottom: spacing.lg,
   },
-  serviceCard: {
-    flex: 1,
-    borderRadius: radius.lg,
-  },
-  serviceInner: {
+  startInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: spacing.md,
   },
-  serviceIconWrap: {
+  startIconWrap: {
     width: 40,
     height: 40,
     borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginRight: spacing.md,
   },
-  serviceName: {
+  startTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
   },
-  servicePriceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-  },
-  servicePrice: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
+  startSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
   serviceArrow: {
     width: 24,

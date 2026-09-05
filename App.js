@@ -6,6 +6,7 @@ import { createStackNavigator, TransitionPresets, CardStyleInterpolators } from 
 import { useFonts, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 
 import HomeScreen from './src/screens/HomeScreen';
+import DurationScreen from './src/screens/DurationScreen';
 import TaskBuilderScreen from './src/screens/TaskBuilderScreen';
 import BookingScreen from './src/screens/BookingScreen';
 import ConfirmScreen from './src/screens/ConfirmScreen';
@@ -38,10 +39,11 @@ export default function App() {
           >
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen
-              name="TaskBuilder"
-              component={TaskBuilderScreen}
+              name="Duration"
+              component={DurationScreen}
               options={{ cardStyleInterpolator: CardStyleInterpolators.forFade }}
             />
+            <Stack.Screen name="TaskBuilder" component={TaskBuilderScreen} />
             <Stack.Screen name="Booking" component={BookingScreen} />
             <Stack.Screen name="Confirm" component={ConfirmScreen} />
             <Stack.Screen name="Success" component={SuccessScreen} />
