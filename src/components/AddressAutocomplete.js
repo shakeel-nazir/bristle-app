@@ -11,6 +11,70 @@ const MIN_QUERY_LENGTH = 3;
 // Ottawa's city boundary, roughly (left,top,right,bottom = minLon,maxLat,maxLon,minLat).
 const OTTAWA_VIEWBOX = '-76.3556,45.5376,-75.2465,44.9617';
 
+const PROVINCE_ABBR = {
+  ontario: 'ON',
+  quebec: 'QC',
+  'nova scotia': 'NS',
+  'new brunswick': 'NB',
+  manitoba: 'MB',
+  'british columbia': 'BC',
+  'prince edward island': 'PE',
+  saskatchewan: 'SK',
+  alberta: 'AB',
+  newfoundland: 'NL',
+  'newfoundland and labrador': 'NL',
+};
+
+const STREET_SUFFIX_ABBR = {
+  street: 'St',
+  avenue: 'Ave',
+  road: 'Rd',
+  drive: 'Dr',
+  boulevard: 'Blvd',
+  crescent: 'Cres',
+  court: 'Ct',
+  lane: 'Ln',
+  place: 'Pl',
+  terrace: 'Terr',
+  circle: 'Cir',
+  way: 'Way',
+  parkway: 'Pkwy',
+  trail: 'Trail',
+  gate: 'Gate',
+  path: 'Path',
+};
+
+const DIRECTION_ABBR = {
+  north: 'N',
+  south: 'S',
+  east: 'E',
+  west: 'W',
+  northeast: 'NE',
+  northwest: 'NW',
+  southeast: 'SE',
+  southwest: 'SW',
+};
+
+function abbreviateStreet(road) {
+  const words = road.split(' ');
+  let suffixIndex = words.length - 1;
+
+  const lastWord = words[suffixIndex].toLowerCase();
+  if (DIRECTION_ABBR[lastWord]) {
+    words[suffixIndex] = DIRECTION_ABBR[lastWord];
+    suffixIndex -= 1;
+  }
+
+  if (suffixIndex >= 0) {
+    const suffixWord = words[suffixIndex].toLowerCase();
+    if (STREET_SUFFIX_ABBR[suffixWord]) {
+      words[suffixIndex] = STREET_SUFFIX_ABBR[suffixWord];
+    }
+  }
+
+  return words.join(' ');
+}
+
 function isInOttawa(result) {
   const city = result.address?.city || result.address?.town || result.address?.village || result.address?.municipality;
   if (city) return city.toLowerCase() === 'ottawa';
@@ -19,22 +83,35 @@ function isInOttawa(result) {
 
 function getStreetLine(result) {
   const a = result.address || {};
-  if (a.house_number && a.road) return `${a.house_number} ${a.road}`;
-  if (a.road) return a.road;
+  if (a.house_number && a.road) return `${a.house_number} ${abbreviateStreet(a.road)}`;
+  if (a.road) return abbreviateStreet(a.road);
   return result.display_name.split(',')[0];
 }
 
-function getAreaLine(result) {
+function getLocality(result) {
   const a = result.address || {};
-  const city = a.city || a.town || a.village || a.municipality;
-  const neighbourhood = a.neighbourhood || a.suburb;
-  return [neighbourhood, city].filter(Boolean).join(', ');
+  return a.suburb || a.neighbourhood || a.hamlet || a.village || a.town || a.city || '';
 }
 
-function getShortAddress(result) {
+function getProvinceAbbr(result) {
+  const state = result.address?.state;
+  if (!state) return '';
+  return PROVINCE_ABBR[state.toLowerCase()] || state;
+}
+
+function getAreaLine(result) {
+  const locality = getLocality(result);
+  const province = getProvinceAbbr(result);
+  const postcode = result.address?.postcode || '';
+  return [locality, [province, postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+}
+
+function getFullAddress(result) {
   const street = getStreetLine(result);
-  const city = result.address?.city || result.address?.town || result.address?.village || result.address?.municipality;
-  return city ? `${street}, ${city}` : street;
+  const locality = getLocality(result);
+  const province = getProvinceAbbr(result);
+  const postcode = result.address?.postcode || '';
+  return [street, locality, [province, postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 }
 
 export default function AddressAutocomplete({ value, onChangeText, onValidChange, placeholder }) {
@@ -101,7 +178,7 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
 
   const handleSelect = (result) => {
     skipNextFetch.current = true;
-    onChangeText(getShortAddress(result));
+    onChangeText(getFullAddress(result));
     setIsValid(true);
     onValidChange?.(true);
     setSuggestions([]);
