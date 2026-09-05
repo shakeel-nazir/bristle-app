@@ -1,6 +1,7 @@
 export const colors = {
   background: '#F4EEE9',
   gradient: ['#F7D9C4', '#E8C9DE', '#CFCFEF'],
+  pageGradient: ['#F7D9C4', '#E8C9DE', '#CFCFEF', '#EDE7F2', '#F4EEE9'],
   card: '#FFFFFF',
   cardMuted: '#F6F1EC',
   border: '#EAE1D8',

@@ -1,9 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { colors, spacing, radius } from '../theme/theme';
+import { useBooking } from '../context/BookingContext';
 
 export default function ConfirmScreen({ route, navigation }) {
   const { service, date, time, address } = route.params;
+  const { setUpcomingBooking } = useBooking();
+
+  const handleConfirm = () => {
+    setUpcomingBooking({ service, date, time, address });
+    navigation.navigate('Success', { service, date, time });
+  };
 
   return (
     <View style={styles.container}>
@@ -18,10 +25,7 @@ export default function ConfirmScreen({ route, navigation }) {
         <Row label="Total" value={`$${service.price}`} bold />
       </View>
 
-      <Pressable
-        style={styles.button}
-        onPress={() => navigation.navigate('Success', { service, date, time })}
-      >
+      <Pressable style={styles.button} onPress={handleConfirm}>
         <Text style={styles.buttonText}>Confirm and pay</Text>
       </Pressable>
     </View>

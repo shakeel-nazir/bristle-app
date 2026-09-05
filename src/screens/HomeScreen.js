@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
+import { useBooking } from '../context/BookingContext';
+import GlassCard from '../components/GlassCard';
 
 const services = [
   {
@@ -12,7 +14,6 @@ const services = [
     duration: '~2 hrs',
     description: 'Dusting, vacuuming, kitchen & bathrooms — regular upkeep',
     icon: 'sparkles-outline',
-    tint: ['#DCEBD8', '#C7E0D4'],
   },
   {
     id: 'super',
@@ -21,90 +22,145 @@ const services = [
     duration: '~4 hrs',
     description: 'Deep clean inside appliances, baseboards, windows & more',
     icon: 'flash-outline',
-    tint: ['#F7D9C4', '#EFC3D3'],
   },
 ];
 
+const quickServices = [
+  { id: 'book', label: 'Book a Clean', icon: 'add-circle-outline' },
+  { id: 'reschedule', label: 'Reschedule', icon: 'calendar-outline' },
+  { id: 'addons', label: 'Add-ons', icon: 'pricetag-outline' },
+  { id: 'support', label: 'Support', icon: 'chatbubble-ellipses-outline' },
+  { id: 'payment', label: 'Payment', icon: 'card-outline' },
+  { id: 'refer', label: 'Refer a Friend', icon: 'gift-outline' },
+];
+
 export default function HomeScreen({ navigation }) {
+  const { upcomingBooking } = useBooking();
+
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={colors.gradient}
+        colors={colors.pageGradient}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
+        end={{ x: 0.3, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+
+      <View style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.brandRow}>
             <LinearGradient colors={colors.logoGradient} style={styles.logo} />
             <Text style={styles.brand}>Bristle</Text>
           </View>
-          <Pressable style={styles.iconButton}>
-            <Ionicons name="person-outline" size={18} color={colors.primary} />
-          </Pressable>
+          <GlassCard style={styles.iconButton} intensity={30}>
+            <View style={styles.iconButtonInner}>
+              <Ionicons name="person-outline" size={16} color={colors.primary} />
+            </View>
+          </GlassCard>
         </View>
 
         <Text style={styles.greeting}>
           Good morning, <Text style={styles.greetingBold}>Andrew</Text>
         </Text>
         <Text style={styles.subGreeting}>What needs cleaning today?</Text>
-      </LinearGradient>
+
+        {upcomingBooking && (
+          <GlassCard style={styles.statusPill} intensity={30}>
+            <View style={styles.statusPillInner}>
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusBadgeText}>1</Text>
+              </View>
+              <Text style={styles.statusPillText}>You have a clean scheduled</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            </View>
+          </GlassCard>
+        )}
+      </View>
 
       <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent}>
-        <Pressable style={styles.nextCard}>
-          <View style={styles.nextIcon}>
-            <Ionicons name="calendar-outline" size={18} color={colors.accent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.nextTitle}>No cleans booked yet</Text>
-            <Text style={styles.nextSubtitle}>Book your first clean below</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-        </Pressable>
+        {upcomingBooking ? (
+          <GlassCard style={styles.upcomingCard} intensity={45}>
+            <View style={styles.upcomingInner}>
+              <View style={styles.upcomingHeaderRow}>
+                <View style={styles.upcomingIcon}>
+                  <Ionicons name="calendar" size={18} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.upcomingTitle}>Upcoming clean</Text>
+                  <Text style={styles.upcomingSubtitle}>
+                    {upcomingBooking.date} · {upcomingBooking.time}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.upcomingFooterRow}>
+                <View>
+                  <Text style={styles.upcomingServiceName}>{upcomingBooking.service.name}</Text>
+                  <Text style={styles.upcomingPrice}>${upcomingBooking.service.price}</Text>
+                </View>
+                <Pressable style={styles.viewBookingButton}>
+                  <Text style={styles.viewBookingText}>View Booking</Text>
+                </Pressable>
+              </View>
+            </View>
+          </GlassCard>
+        ) : (
+          <GlassCard style={styles.nextCard} intensity={45}>
+            <View style={styles.nextInner}>
+              <View style={styles.nextIcon}>
+                <Ionicons name="calendar-outline" size={18} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.nextTitle}>No cleans booked yet</Text>
+                <Text style={styles.nextSubtitle}>Book your first clean below</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            </View>
+          </GlassCard>
+        )}
 
         <Text style={styles.sectionLabel}>Choose a clean</Text>
 
         <View style={styles.grid}>
           {services.map((service) => (
-            <Pressable
+            <GlassCard
               key={service.id}
               style={styles.serviceCard}
+              intensity={45}
               onPress={() => navigation.navigate('Booking', { service })}
             >
-              <LinearGradient colors={service.tint} style={styles.serviceIconWrap}>
-                <Ionicons name={service.icon} size={22} color={colors.primary} />
-              </LinearGradient>
-              <Text style={styles.serviceName}>{service.name}</Text>
-              <Text style={styles.serviceDuration}>{service.duration}</Text>
-              <Text style={styles.serviceDescription}>{service.description}</Text>
-              <View style={styles.servicePriceRow}>
-                <Text style={styles.servicePrice}>From ${service.price}</Text>
-                <View style={styles.serviceArrow}>
-                  <Ionicons name="arrow-forward" size={14} color={colors.accentText} />
+              <View style={styles.serviceInner}>
+                <View style={styles.serviceIconWrap}>
+                  <Ionicons name={service.icon} size={22} color={colors.primary} />
+                </View>
+                <Text style={styles.serviceName}>{service.name}</Text>
+                <Text style={styles.serviceDuration}>{service.duration}</Text>
+                <Text style={styles.serviceDescription}>{service.description}</Text>
+                <View style={styles.servicePriceRow}>
+                  <Text style={styles.servicePrice}>From ${service.price}</Text>
+                  <View style={styles.serviceArrow}>
+                    <Ionicons name="arrow-forward" size={14} color={colors.accentText} />
+                  </View>
                 </View>
               </View>
-            </Pressable>
+            </GlassCard>
           ))}
         </View>
 
-        <Text style={styles.sectionLabel}>Others</Text>
-        <View style={styles.listCard}>
-          <ListRow icon="help-circle-outline" label="How booking works" />
-          <ListRow icon="pricetag-outline" label="Pricing & add-ons" />
-          <ListRow icon="chatbubble-ellipses-outline" label="Contact support" last />
+        <Text style={styles.sectionLabel}>Services</Text>
+        <View style={styles.quickGrid}>
+          {quickServices.map((item) => (
+            <GlassCard key={item.id} style={styles.quickItem} intensity={40}>
+              <View style={styles.quickInner}>
+                <View style={styles.quickIconWrap}>
+                  <Ionicons name={item.icon} size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={2}>{item.label}</Text>
+              </View>
+            </GlassCard>
+          ))}
         </View>
       </ScrollView>
     </View>
-  );
-}
-
-function ListRow({ icon, label, last }) {
-  return (
-    <Pressable style={[styles.listRow, !last && styles.listRowBorder]}>
-      <Ionicons name={icon} size={18} color={colors.textSecondary} style={{ marginRight: spacing.sm }} />
-      <Text style={styles.listLabel}>{label}</Text>
-      <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
-    </Pressable>
   );
 }
 
@@ -113,12 +169,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  headerGradient: {
+  header: {
     paddingTop: 64,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
-    borderBottomLeftRadius: radius.xl,
-    borderBottomRightRadius: radius.xl,
   },
   headerRow: {
     flexDirection: 'row',
@@ -145,7 +199,9 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+  },
+  iconButtonInner: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -163,32 +219,58 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: 2,
   },
+  statusPill: {
+    borderRadius: radius.lg,
+    marginTop: spacing.lg,
+  },
+  statusPillInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  statusBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  statusPillText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   sheet: {
     flex: 1,
-    marginTop: -spacing.lg,
   },
   sheetContent: {
     padding: spacing.lg,
+    paddingTop: 0,
     paddingBottom: spacing.xl,
   },
   nextCard: {
+    borderRadius: radius.lg,
+    marginBottom: spacing.lg,
+  },
+  nextInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
     padding: spacing.md,
-    marginBottom: spacing.lg,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
   },
   nextIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.accentSoft,
+    backgroundColor: 'rgba(232,115,74,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
@@ -202,6 +284,63 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 1,
+  },
+  upcomingCard: {
+    borderRadius: radius.lg,
+    marginBottom: spacing.lg,
+  },
+  upcomingInner: {
+    padding: spacing.md,
+  },
+  upcomingHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  upcomingIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(232,115,74,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  upcomingTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  upcomingSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  upcomingFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  upcomingServiceName: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  upcomingPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    marginTop: 2,
+  },
+  viewBookingButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+  },
+  viewBookingText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.background,
   },
   sectionLabel: {
     fontSize: 13,
@@ -218,19 +357,16 @@ const styles = StyleSheet.create({
   },
   serviceCard: {
     flex: 1,
-    backgroundColor: colors.card,
     borderRadius: radius.lg,
+  },
+  serviceInner: {
     padding: spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
   },
   serviceIconWrap: {
     width: 40,
     height: 40,
     borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
@@ -270,22 +406,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  listCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-  },
-  listRow: {
+  quickGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  quickItem: {
+    width: '31%',
+    borderRadius: radius.md,
+  },
+  quickInner: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
     alignItems: 'center',
-    paddingVertical: 14,
   },
-  listRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  quickIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
   },
-  listLabel: {
-    fontSize: 13,
+  quickLabel: {
+    fontSize: 11,
+    fontWeight: '600',
     color: colors.text,
+    textAlign: 'center',
   },
 });
