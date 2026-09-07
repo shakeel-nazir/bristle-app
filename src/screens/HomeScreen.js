@@ -177,7 +177,7 @@ export default function HomeScreen({ navigation }) {
             >
               <View style={styles.quickInner}>
                 <View style={styles.quickIconWrap}>
-                  <Ionicons name={item.icon} size={20} color={colors.primary} />
+                  <Ionicons name={item.icon} size={16} color={colors.primary} />
                 </View>
                 <Text style={styles.quickLabel} numberOfLines={2}>{item.label}</Text>
               </View>
@@ -224,9 +224,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingTop: 64,
+    paddingTop: 36,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.lg,
   },
   brand: {
     fontFamily: 'Fredoka_700Bold',
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.accent,
     marginTop: -6,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   greeting: {
     fontSize: 24,
@@ -406,28 +406,28 @@ const styles = StyleSheet.create({
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   quickItem: {
-    width: '31%',
-    borderRadius: radius.md,
+    width: '31.5%',
+    borderRadius: radius.sm,
   },
   quickInner: {
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xs,
     alignItems: 'center',
   },
   quickIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: 'rgba(255,255,255,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   quickLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
