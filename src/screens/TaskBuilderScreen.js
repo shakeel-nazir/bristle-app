@@ -110,7 +110,7 @@ export default function TaskBuilderScreen({ route, navigation }) {
               onPress={handleAddTask}
               disabled={!canAddTask}
             >
-              <Ionicons name="add" size={20} color={colors.accentText} />
+              <Ionicons name="add" size={22} color={canAddTask ? colors.accentText : colors.textSecondary} />
             </Pressable>
           </View>
         </GlassCard>
@@ -123,19 +123,27 @@ export default function TaskBuilderScreen({ route, navigation }) {
                   <Text style={styles.taskLabel} numberOfLines={1}>{task.label}</Text>
                   <View style={styles.taskControls}>
                     <Pressable
-                      style={styles.stepperButton}
+                      style={[styles.stepperButton, task.minutes <= MIN_MINUTES_PER_TASK && styles.stepperButtonDisabled]}
                       onPress={() => adjustTask(task.id, -MIN_MINUTES_PER_TASK)}
                       disabled={task.minutes <= MIN_MINUTES_PER_TASK}
                     >
-                      <Ionicons name="remove" size={14} color={colors.text} />
+                      <Ionicons
+                        name="remove"
+                        size={16}
+                        color={task.minutes <= MIN_MINUTES_PER_TASK ? colors.textSecondary : colors.text}
+                      />
                     </Pressable>
                     <Text style={styles.taskMinutes}>{formatMinutes(task.minutes)}</Text>
                     <Pressable
-                      style={styles.stepperButton}
+                      style={[styles.stepperButton, remaining < MIN_MINUTES_PER_TASK && styles.stepperButtonDisabled]}
                       onPress={() => adjustTask(task.id, MIN_MINUTES_PER_TASK)}
                       disabled={remaining < MIN_MINUTES_PER_TASK}
                     >
-                      <Ionicons name="add" size={14} color={colors.text} />
+                      <Ionicons
+                        name="add"
+                        size={16}
+                        color={remaining < MIN_MINUTES_PER_TASK ? colors.textSecondary : colors.text}
+                      />
                     </Pressable>
                     <Pressable style={styles.removeButton} onPress={() => removeTask(task.id)}>
                       <Ionicons name="close" size={16} color={colors.textSecondary} />
@@ -235,7 +243,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addButtonDisabled: {
-    opacity: 0.4,
+    backgroundColor: 'rgba(46,42,38,0.1)',
   },
   taskList: {
     marginTop: spacing.md,
@@ -264,12 +272,18 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   stepperButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stepperButtonDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderColor: 'transparent',
   },
   taskMinutes: {
     fontSize: 12,
