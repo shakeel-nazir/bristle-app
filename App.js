@@ -12,6 +12,8 @@ import BookingScreen from './src/screens/BookingScreen';
 import ConfirmScreen from './src/screens/ConfirmScreen';
 import SuccessScreen from './src/screens/SuccessScreen';
 import LegalScreen from './src/screens/LegalScreen';
+import BecomeCleanerScreen from './src/screens/BecomeCleanerScreen';
+import CleanerApplicationSuccessScreen from './src/screens/CleanerApplicationSuccessScreen';
 import { BookingProvider } from './src/context/BookingContext';
 
 const Stack = createStackNavigator();
@@ -49,6 +51,8 @@ export default function App() {
             <Stack.Screen name="Confirm" component={ConfirmScreen} />
             <Stack.Screen name="Success" component={SuccessScreen} />
             <Stack.Screen name="Legal" component={LegalScreen} />
+            <Stack.Screen name="BecomeCleaner" component={BecomeCleanerScreen} />
+            <Stack.Screen name="CleanerApplicationSuccess" component={CleanerApplicationSuccessScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </BookingProvider>

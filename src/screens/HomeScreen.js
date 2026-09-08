@@ -16,7 +16,7 @@ function getGreeting() {
 }
 
 const quickServices = [
-  { id: 'book', label: 'Book a Clean', icon: 'add-circle-outline' },
+  { id: 'becomeCleaner', label: 'Become a Cleaner', icon: 'briefcase-outline' },
   { id: 'reschedule', label: 'Reschedule', icon: 'calendar-outline' },
   { id: 'legal', label: 'Legal', icon: 'document-text-outline' },
   { id: 'support', label: 'Support', icon: 'chatbubble-ellipses-outline' },
@@ -61,8 +61,8 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleQuickService = (id) => {
-    if (id === 'book') {
-      startBooking();
+    if (id === 'becomeCleaner') {
+      navigation.navigate('BecomeCleaner');
       return;
     }
     if (id === 'reschedule') {
