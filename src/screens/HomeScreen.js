@@ -90,7 +90,7 @@ export default function HomeScreen({ navigation }) {
       />
 
       <View style={styles.header}>
-        <Text style={styles.brand}>bristle</Text>
+        <Text style={styles.brand}>BRISTLE</Text>
         <Text style={styles.tagline}>You decide what gets cleaned</Text>
 
         <Text style={styles.greeting}>
