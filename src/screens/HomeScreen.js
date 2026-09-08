@@ -66,11 +66,7 @@ export default function HomeScreen({ navigation }) {
       return;
     }
     if (id === 'reschedule') {
-      if (upcomingBookings.length > 0) {
-        navigation.navigate('Booking', { service: upcomingBookings[0].service });
-      } else {
-        startBooking();
-      }
+      navigation.navigate('Booking', { service: upcomingBookings[0].service });
       return;
     }
     if (id === 'legal') {
@@ -168,7 +164,9 @@ export default function HomeScreen({ navigation }) {
 
         <Text style={styles.sectionLabel}>Services</Text>
         <View style={styles.quickGrid}>
-          {quickServices.map((item) => (
+          {quickServices
+            .filter((item) => item.id !== 'reschedule' || upcomingBookings.length > 0)
+            .map((item) => (
             <GlassCard
               key={item.id}
               style={styles.quickItem}
