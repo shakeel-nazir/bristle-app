@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from '../components/GlassCard';
+import AnimatedPressable from '../components/AnimatedPressable';
+import GaugeRing from '../components/GaugeRing';
+import { useApplication } from '../context/ApplicationContext';
 
 const STEP_COUNT = 4;
 
@@ -16,6 +19,7 @@ function isValidEmail(email) {
 }
 
 export default function BecomeCleanerScreen({ navigation }) {
+  const { submitApplication } = useApplication();
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
 
@@ -66,14 +70,8 @@ export default function BecomeCleanerScreen({ navigation }) {
       setError('Please confirm to submit your application');
       return;
     }
-    navigation.navigate('CleanerApplicationSuccess', {
-      fullName,
-      email,
-      phone,
-      experience,
-      days,
-      timeBlocks,
-    });
+    submitApplication({ fullName, email, phone, experience, about, days, timeBlocks });
+    navigation.navigate('CleanerApplicationSuccess');
   };
 
   return (
@@ -147,7 +145,7 @@ export default function BecomeCleanerScreen({ navigation }) {
 
             <View style={styles.chipRow}>
               {EXPERIENCE_LEVELS.map((level) => (
-                <Pressable
+                <AnimatedPressable
                   key={level}
                   style={[styles.chip, experience === level && styles.chipSelected]}
                   onPress={() => {
@@ -156,7 +154,7 @@ export default function BecomeCleanerScreen({ navigation }) {
                   }}
                 >
                   <Text style={[styles.chipText, experience === level && styles.chipTextSelected]}>{level}</Text>
-                </Pressable>
+                </AnimatedPressable>
               ))}
             </View>
 
@@ -185,7 +183,7 @@ export default function BecomeCleanerScreen({ navigation }) {
             <Text style={styles.fieldLabel}>Days</Text>
             <View style={styles.chipRow}>
               {WEEKDAYS.map((day) => (
-                <Pressable
+                <AnimatedPressable
                   key={day}
                   style={[styles.chip, days.includes(day) && styles.chipSelected]}
                   onPress={() => {
@@ -194,14 +192,14 @@ export default function BecomeCleanerScreen({ navigation }) {
                   }}
                 >
                   <Text style={[styles.chipText, days.includes(day) && styles.chipTextSelected]}>{day}</Text>
-                </Pressable>
+                </AnimatedPressable>
               ))}
             </View>
 
             <Text style={styles.fieldLabel}>Time of day</Text>
             <View style={styles.chipRow}>
               {TIME_BLOCKS.map((block) => (
-                <Pressable
+                <AnimatedPressable
                   key={block}
                   style={[styles.chip, timeBlocks.includes(block) && styles.chipSelected]}
                   onPress={() => {
@@ -210,7 +208,7 @@ export default function BecomeCleanerScreen({ navigation }) {
                   }}
                 >
                   <Text style={[styles.chipText, timeBlocks.includes(block) && styles.chipTextSelected]}>{block}</Text>
-                </Pressable>
+                </AnimatedPressable>
               ))}
             </View>
           </>
@@ -220,6 +218,10 @@ export default function BecomeCleanerScreen({ navigation }) {
           <>
             <Text style={styles.title}>Review & submit</Text>
             <Text style={styles.subtitle}>Make sure everything looks right</Text>
+
+            <View style={styles.gaugeWrap}>
+              <GaugeRing progress={1} sublabel="Application complete — you're ready to submit!" />
+            </View>
 
             <GlassCard style={styles.card} intensity={45}>
               <View style={styles.cardInner}>
@@ -235,22 +237,22 @@ export default function BecomeCleanerScreen({ navigation }) {
               </View>
             </GlassCard>
 
-            <Pressable style={styles.consentRow} onPress={() => setConsent(!consent)}>
+            <AnimatedPressable style={styles.consentRow} onPress={() => setConsent(!consent)} scaleTo={0.98}>
               <View style={[styles.checkbox, consent && styles.checkboxChecked]}>
                 {consent && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
               </View>
               <Text style={styles.consentText}>
                 I confirm this information is accurate and consent to a background check.
               </Text>
-            </Pressable>
+            </AnimatedPressable>
           </>
         )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Pressable style={styles.button} onPress={step === STEP_COUNT - 1 ? handleSubmit : goNext}>
+        <AnimatedPressable style={styles.button} onPress={step === STEP_COUNT - 1 ? handleSubmit : goNext}>
           <Text style={styles.buttonText}>{step === STEP_COUNT - 1 ? 'Submit application' : 'Continue'}</Text>
-        </Pressable>
+        </AnimatedPressable>
       </ScrollView>
     </View>
   );
@@ -322,6 +324,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     marginTop: 4,
+    marginBottom: spacing.lg,
+  },
+  gaugeWrap: {
     marginBottom: spacing.lg,
   },
   card: {

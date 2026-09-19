@@ -4,9 +4,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import { useBooking } from '../context/BookingContext';
+import { useApplication } from '../context/ApplicationContext';
 import GlassCard from '../components/GlassCard';
 import ConfirmModal from '../components/ConfirmModal';
+import AnimatedPressable from '../components/AnimatedPressable';
 import { buildGoogleCalendarUrl } from '../utils/calendar';
+import {
+  APPLICATION_STATUS_LABEL,
+  APPLICATION_PROGRESS_PERCENT,
+} from '../utils/applicationStatus';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -18,23 +24,23 @@ function getGreeting() {
 const quickServices = [
   { id: 'becomeCleaner', label: 'Become a Cleaner', icon: 'briefcase-outline' },
   { id: 'reschedule', label: 'Reschedule', icon: 'calendar-outline' },
+  { id: 'refer', label: 'Refer a Friend', icon: 'gift-outline' },
+  { id: 'redeem', label: 'Enter Savings Code', icon: 'pricetag-outline' },
+  { id: 'payment', label: 'Payment', icon: 'card-outline' },
   { id: 'legal', label: 'Legal', icon: 'document-text-outline' },
   { id: 'support', label: 'Support', icon: 'chatbubble-ellipses-outline' },
-  { id: 'payment', label: 'Payment', icon: 'card-outline' },
-  { id: 'refer', label: 'Refer a Friend', icon: 'gift-outline' },
 ];
 
 export default function HomeScreen({ navigation }) {
-  const { upcomingBookings, cancelBooking, canBookMore } = useBooking();
-  const [cancelTarget, setCancelTarget] = useState(null);
+  const { upcomingBookings, canBookMore, discount } = useBooking();
+  const { application, cancelApplication } = useApplication();
   const [limitVisible, setLimitVisible] = useState(false);
   const [comingSoonVisible, setComingSoonVisible] = useState(false);
+  const [cancelAppVisible, setCancelAppVisible] = useState(false);
 
   const handleViewBooking = (booking) => {
     navigation.navigate('Confirm', { ...booking, viewOnly: true });
   };
-
-  const handleCancelBooking = (booking) => setCancelTarget(booking);
 
   const handleAddToCalendar = (booking) => {
     if (!booking.rawDate) return;
@@ -47,11 +53,6 @@ export default function HomeScreen({ navigation }) {
     Linking.openURL(url);
   };
 
-  const confirmCancelBooking = () => {
-    if (cancelTarget) cancelBooking(cancelTarget.id);
-    setCancelTarget(null);
-  };
-
   const startBooking = () => {
     if (!canBookMore) {
       setLimitVisible(true);
@@ -60,9 +61,14 @@ export default function HomeScreen({ navigation }) {
     navigation.navigate('Duration');
   };
 
+  const confirmCancelApplication = () => {
+    cancelApplication();
+    setCancelAppVisible(false);
+  };
+
   const handleQuickService = (id) => {
     if (id === 'becomeCleaner') {
-      navigation.navigate('BecomeCleaner');
+      navigation.navigate(application ? 'CleanerApplicationSuccess' : 'BecomeCleaner');
       return;
     }
     if (id === 'reschedule') {
@@ -71,6 +77,14 @@ export default function HomeScreen({ navigation }) {
     }
     if (id === 'legal') {
       navigation.navigate('Legal');
+      return;
+    }
+    if (id === 'refer') {
+      navigation.navigate('Refer');
+      return;
+    }
+    if (id === 'redeem') {
+      navigation.navigate('RedeemCode');
       return;
     }
     setComingSoonVisible(true);
@@ -84,6 +98,13 @@ export default function HomeScreen({ navigation }) {
         end={{ x: 0.3, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
+
+      {discount && (
+        <View style={styles.discountSticker}>
+          <Text style={styles.discountStickerPercent}>{discount.percent}% OFF</Text>
+          <Text style={styles.discountStickerCode}>Code {discount.code} active</Text>
+        </View>
+      )}
 
       <View style={styles.header}>
         <Text style={styles.brand}>BRISTLE</Text>
@@ -105,25 +126,21 @@ export default function HomeScreen({ navigation }) {
                     <Ionicons name="calendar" size={18} color={colors.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.upcomingTitle}>Upcoming clean</Text>
+                    <Text style={styles.upcomingTitle} numberOfLines={1}>
+                      Upcoming clean · {booking.service.name}
+                    </Text>
                     <Text style={styles.upcomingSubtitle}>
                       {booking.date} · {booking.time}
                     </Text>
                   </View>
                 </View>
                 <View style={styles.upcomingFooterRow}>
-                  <Text style={styles.upcomingServiceName}>{booking.service.name}</Text>
-                  <Pressable style={styles.viewBookingButton} onPress={() => handleViewBooking(booking)}>
-                    <Text style={styles.viewBookingText}>View Booking</Text>
-                  </Pressable>
-                </View>
-                <View style={styles.linkRow}>
                   <Pressable onPress={() => handleAddToCalendar(booking)}>
                     <Text style={styles.calendarLinkText}>Add to Calendar</Text>
                   </Pressable>
-                  <Pressable onPress={() => handleCancelBooking(booking)}>
-                    <Text style={styles.cancelLinkText}>Cancel booking</Text>
-                  </Pressable>
+                  <AnimatedPressable style={styles.viewBookingButton} onPress={() => handleViewBooking(booking)}>
+                    <Text style={styles.viewBookingText}>View Booking</Text>
+                  </AnimatedPressable>
                 </View>
               </View>
             </GlassCard>
@@ -143,6 +160,41 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.nextSubtitle}>Book your first clean below</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            </View>
+          </GlassCard>
+        )}
+
+        {application && (
+          <GlassCard style={styles.applicationCard} intensity={45}>
+            <View style={styles.applicationInner}>
+              <View style={styles.applicationHeaderRow}>
+                <View style={styles.applicationIcon}>
+                  <Ionicons name="briefcase" size={18} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.applicationTitle} numberOfLines={1}>Cleaner application</Text>
+                  <Text style={styles.applicationSubtitle}>{APPLICATION_STATUS_LABEL}</Text>
+                </View>
+              </View>
+
+              <View style={styles.applicationProgressRow}>
+                <View style={styles.applicationProgressTrack}>
+                  <View style={[styles.applicationProgressFill, { width: `${APPLICATION_PROGRESS_PERCENT}%` }]} />
+                </View>
+                <Text style={styles.applicationProgressLabel}>{APPLICATION_PROGRESS_PERCENT}%</Text>
+              </View>
+
+              <View style={styles.applicationFooterRow}>
+                <AnimatedPressable onPress={() => setCancelAppVisible(true)}>
+                  <Text style={styles.cancelApplicationText}>Cancel application</Text>
+                </AnimatedPressable>
+                <AnimatedPressable
+                  style={styles.viewApplicationButton}
+                  onPress={() => navigation.navigate('CleanerApplicationSuccess')}
+                >
+                  <Text style={styles.viewApplicationText}>View status</Text>
+                </AnimatedPressable>
+              </View>
             </View>
           </GlassCard>
         )}
@@ -175,7 +227,7 @@ export default function HomeScreen({ navigation }) {
             >
               <View style={styles.quickInner}>
                 <View style={styles.quickIconWrap}>
-                  <Ionicons name={item.icon} size={16} color={colors.primary} />
+                  <Ionicons name={item.icon} size={20} color={colors.primary} />
                 </View>
                 <Text style={styles.quickLabel} numberOfLines={2}>{item.label}</Text>
               </View>
@@ -183,19 +235,6 @@ export default function HomeScreen({ navigation }) {
           ))}
         </View>
       </ScrollView>
-
-      {cancelTarget && (
-        <ConfirmModal
-          visible={!!cancelTarget}
-          title="Cancel booking?"
-          message={`This will cancel your ${cancelTarget.service.name.toLowerCase()} on ${cancelTarget.date}.`}
-          onRequestClose={() => setCancelTarget(null)}
-          buttons={[
-            { text: 'Keep booking', style: 'cancel', onPress: () => setCancelTarget(null) },
-            { text: 'Cancel booking', style: 'destructive', onPress: confirmCancelBooking },
-          ]}
-        />
-      )}
 
       <ConfirmModal
         visible={limitVisible}
@@ -212,6 +251,17 @@ export default function HomeScreen({ navigation }) {
         onRequestClose={() => setComingSoonVisible(false)}
         buttons={[{ text: 'OK', onPress: () => setComingSoonVisible(false) }]}
       />
+
+      <ConfirmModal
+        visible={cancelAppVisible}
+        title="Cancel application?"
+        message="This will withdraw your cleaner application. You can always apply again later."
+        onRequestClose={() => setCancelAppVisible(false)}
+        buttons={[
+          { text: 'Keep application', style: 'cancel', onPress: () => setCancelAppVisible(false) },
+          { text: 'Cancel application', style: 'destructive', onPress: confirmCancelApplication },
+        ]}
+      />
     </View>
   );
 }
@@ -225,6 +275,34 @@ const styles = StyleSheet.create({
     paddingTop: 36,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
+  },
+  discountSticker: {
+    position: 'absolute',
+    top: 28,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: colors.accent,
+    borderRadius: radius.sm,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    transform: [{ rotate: '6deg' }],
+    shadowColor: '#2E2A26',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  discountStickerPercent: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.accentText,
+  },
+  discountStickerCode: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: colors.accentText,
+    marginTop: 1,
   },
   brand: {
     fontFamily: 'Fredoka_700Bold',
@@ -326,25 +404,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  upcomingServiceName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  linkRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-  },
   calendarLinkText: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.accent,
-  },
-  cancelLinkText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#A32D2D',
   },
   viewBookingButton: {
     backgroundColor: colors.primary,
@@ -353,6 +416,83 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   viewBookingText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.background,
+  },
+  applicationCard: {
+    borderRadius: radius.lg,
+    marginBottom: spacing.lg,
+  },
+  applicationInner: {
+    padding: spacing.md,
+  },
+  applicationHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  applicationIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(232,115,74,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  applicationTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  applicationSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  applicationProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  applicationProgressTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(46,42,38,0.12)',
+    overflow: 'hidden',
+  },
+  applicationProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+  },
+  applicationProgressLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+    width: 36,
+    textAlign: 'right',
+  },
+  applicationFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cancelApplicationText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#A32D2D',
+  },
+  viewApplicationButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+  },
+  viewApplicationText: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.background,
@@ -408,24 +548,24 @@ const styles = StyleSheet.create({
   },
   quickItem: {
     width: '31.5%',
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
   },
   quickInner: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.xs,
     alignItems: 'center',
   },
   quickIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   quickLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.text,
     textAlign: 'center',

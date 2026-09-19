@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { getMyReferralCode, REFERRAL_DISCOUNT_PERCENT } from '../utils/referral';
 
 const BookingContext = createContext(null);
 
@@ -6,6 +7,7 @@ export const MAX_BOOKINGS = 2;
 
 export function BookingProvider({ children }) {
   const [upcomingBookings, setUpcomingBookings] = useState([]);
+  const [discount, setDiscount] = useState(null);
 
   const addBooking = (booking) => {
     let added = false;
@@ -21,10 +23,33 @@ export function BookingProvider({ children }) {
     setUpcomingBookings((prev) => prev.filter((b) => b.id !== id));
   };
 
+  const applyDiscountCode = (rawCode) => {
+    const code = rawCode.trim().toUpperCase();
+    if (!code) return { success: false, message: 'Enter a code' };
+    if (code === getMyReferralCode()) {
+      return { success: false, message: "You can't redeem your own referral code" };
+    }
+    if (code.length < 4) return { success: false, message: "That code doesn't look right" };
+    setDiscount({ code, percent: REFERRAL_DISCOUNT_PERCENT });
+    return { success: true };
+  };
+
+  const clearDiscount = () => setDiscount(null);
+
   const canBookMore = upcomingBookings.length < MAX_BOOKINGS;
 
   return (
-    <BookingContext.Provider value={{ upcomingBookings, addBooking, cancelBooking, canBookMore }}>
+    <BookingContext.Provider
+      value={{
+        upcomingBookings,
+        addBooking,
+        cancelBooking,
+        canBookMore,
+        discount,
+        applyDiscountCode,
+        clearDiscount,
+      }}
+    >
       {children}
     </BookingContext.Provider>
   );

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Modal, View, Text, StyleSheet, Pressable } from 'react-native';
+import { Modal, View, Text, StyleSheet } from 'react-native';
 import { colors, spacing, radius } from '../theme/theme';
+import AnimatedPressable from './AnimatedPressable';
 
 export default function ConfirmModal({ visible, title, message, buttons, onRequestClose }) {
   return (
@@ -11,7 +12,7 @@ export default function ConfirmModal({ visible, title, message, buttons, onReque
           {message ? <Text style={styles.message}>{message}</Text> : null}
           <View style={styles.actions}>
             {buttons.map((button, index) => (
-              <Pressable
+              <AnimatedPressable
                 key={button.text}
                 style={[
                   styles.button,
@@ -29,7 +30,7 @@ export default function ConfirmModal({ visible, title, message, buttons, onReque
                 >
                   {button.text}
                 </Text>
-              </Pressable>
+              </AnimatedPressable>
             ))}
           </View>
         </View>

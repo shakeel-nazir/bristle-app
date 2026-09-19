@@ -1,21 +1,35 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import { useBooking } from '../context/BookingContext';
 import GlassCard from '../components/GlassCard';
+import ConfirmModal from '../components/ConfirmModal';
+import AnimatedPressable from '../components/AnimatedPressable';
 import { getPriceBreakdown, HST_RATE } from '../utils/pricing';
 
 export default function ConfirmScreen({ route, navigation }) {
-  const { service, date, time, rawDate, address, viewOnly } = route.params;
-  const { addBooking, canBookMore } = useBooking();
-  const { subtotal, tax, total, deposit, balance } = getPriceBreakdown(service.price);
+  const { id, service, date, time, rawDate, address, viewOnly } = route.params;
+  const { addBooking, cancelBooking, canBookMore, discount, clearDiscount } = useBooking();
+  const discountPercent = !viewOnly && discount ? discount.percent : 0;
+  const { subtotal, discountAmount, tax, total, deposit, balance } = getPriceBreakdown(
+    service.price,
+    discountPercent,
+  );
+  const [cancelVisible, setCancelVisible] = useState(false);
 
   const handleConfirm = () => {
     if (!canBookMore) return;
     addBooking({ service, date, time, rawDate, address, subtotal, tax, total, deposit, balance });
+    if (discountPercent > 0) clearDiscount();
     navigation.navigate('Success', { service, date, time, rawDate, address, deposit, balance });
+  };
+
+  const handleCancelBooking = () => {
+    cancelBooking(id);
+    setCancelVisible(false);
+    navigation.popToTop();
   };
 
   return (
@@ -54,6 +68,9 @@ export default function ConfirmScreen({ route, navigation }) {
             <Row label="Address" value={address} />
             <View style={styles.divider} />
             <Row label="Subtotal" value={`$${subtotal.toFixed(2)}`} />
+            {discountPercent > 0 && (
+              <Row label={`Discount (${discount.code})`} value={`-$${discountAmount.toFixed(2)}`} discount />
+            )}
             <Row label={`HST (${Math.round(HST_RATE * 100)}%, Ontario)`} value={`$${tax.toFixed(2)}`} />
             <Row label="Total" value={`$${total.toFixed(2)}`} />
             <View style={styles.divider} />
@@ -69,24 +86,43 @@ export default function ConfirmScreen({ route, navigation }) {
         )}
 
         {!viewOnly && (
-          <Pressable
+          <AnimatedPressable
             style={[styles.button, !canBookMore && styles.buttonDisabled]}
             onPress={handleConfirm}
             disabled={!canBookMore}
           >
             <Text style={styles.buttonText}>Pay ${deposit.toFixed(2)} deposit</Text>
-          </Pressable>
+          </AnimatedPressable>
+        )}
+
+        {viewOnly && (
+          <AnimatedPressable style={styles.cancelButton} onPress={() => setCancelVisible(true)}>
+            <Text style={styles.cancelButtonText}>Cancel booking</Text>
+          </AnimatedPressable>
         )}
       </View>
+
+      <ConfirmModal
+        visible={cancelVisible}
+        title="Cancel booking?"
+        message={`This will cancel your ${service.name.toLowerCase()} on ${date}.`}
+        onRequestClose={() => setCancelVisible(false)}
+        buttons={[
+          { text: 'Keep booking', style: 'cancel', onPress: () => setCancelVisible(false) },
+          { text: 'Cancel booking', style: 'destructive', onPress: handleCancelBooking },
+        ]}
+      />
     </View>
   );
 }
 
-function Row({ label, value, bold }) {
+function Row({ label, value, bold, discount }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, bold && styles.rowValueBold]}>{value}</Text>
+      <Text style={[styles.rowLabel, discount && styles.rowLabelDiscount]}>{label}</Text>
+      <Text style={[styles.rowValue, bold && styles.rowValueBold, discount && styles.rowValueDiscount]}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -154,6 +190,13 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 15,
   },
+  rowLabelDiscount: {
+    color: '#3F8557',
+  },
+  rowValueDiscount: {
+    color: '#3F8557',
+    fontWeight: '700',
+  },
   divider: {
     height: 1,
     backgroundColor: colors.border,
@@ -177,6 +220,17 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: colors.accentText,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.lg,
+  },
+  cancelButtonText: {
+    color: '#A32D2D',
     fontSize: 15,
     fontWeight: '600',
   },

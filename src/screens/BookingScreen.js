@@ -6,6 +6,7 @@ import { colors, spacing, radius } from '../theme/theme';
 import MonthCalendar from '../components/MonthCalendar';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import GlassCard from '../components/GlassCard';
+import AnimatedPressable from '../components/AnimatedPressable';
 
 const timeSlots = ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'];
 
@@ -110,7 +111,7 @@ export default function BookingScreen({ route, navigation }) {
                 <Text style={styles.timesForDate}>{formatDate(selectedDate)}</Text>
                 <View style={styles.row}>
                   {timeSlots.map((t) => (
-                    <Pressable
+                    <AnimatedPressable
                       key={t}
                       style={[styles.chip, selectedTime === t && styles.chipSelected]}
                       onPress={() => {
@@ -119,7 +120,7 @@ export default function BookingScreen({ route, navigation }) {
                       }}
                     >
                       <Text style={[styles.chipText, selectedTime === t && styles.chipTextSelected]}>{t}</Text>
-                    </Pressable>
+                    </AnimatedPressable>
                   ))}
                 </View>
               </>
@@ -145,9 +146,9 @@ export default function BookingScreen({ route, navigation }) {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Pressable style={styles.button} onPress={handleContinue}>
+        <AnimatedPressable style={styles.button} onPress={handleContinue}>
           <Text style={styles.buttonText}>Continue</Text>
-        </Pressable>
+        </AnimatedPressable>
       </ScrollView>
     </View>
   );

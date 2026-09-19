@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from '../components/GlassCard';
 import GaugeRing from '../components/GaugeRing';
+import AnimatedPressable from '../components/AnimatedPressable';
 
 const MIN_MINUTES_PER_TASK = 20;
 
@@ -105,13 +106,13 @@ export default function TaskBuilderScreen({ route, navigation }) {
               onSubmitEditing={handleAddTask}
               editable={!isFull}
             />
-            <Pressable
+            <AnimatedPressable
               style={[styles.addButton, !canAddTask && styles.addButtonDisabled]}
               onPress={handleAddTask}
               disabled={!canAddTask}
             >
               <Ionicons name="add" size={22} color={canAddTask ? colors.accentText : colors.textSecondary} />
-            </Pressable>
+            </AnimatedPressable>
           </View>
         </GlassCard>
 
@@ -122,7 +123,7 @@ export default function TaskBuilderScreen({ route, navigation }) {
                 <View style={styles.taskRowInner}>
                   <Text style={styles.taskLabel} numberOfLines={1}>{task.label}</Text>
                   <View style={styles.taskControls}>
-                    <Pressable
+                    <AnimatedPressable
                       style={[styles.stepperButton, task.minutes <= MIN_MINUTES_PER_TASK && styles.stepperButtonDisabled]}
                       onPress={() => adjustTask(task.id, -MIN_MINUTES_PER_TASK)}
                       disabled={task.minutes <= MIN_MINUTES_PER_TASK}
@@ -132,9 +133,9 @@ export default function TaskBuilderScreen({ route, navigation }) {
                         size={16}
                         color={task.minutes <= MIN_MINUTES_PER_TASK ? colors.textSecondary : colors.text}
                       />
-                    </Pressable>
+                    </AnimatedPressable>
                     <Text style={styles.taskMinutes}>{formatMinutes(task.minutes)}</Text>
-                    <Pressable
+                    <AnimatedPressable
                       style={[styles.stepperButton, remaining < MIN_MINUTES_PER_TASK && styles.stepperButtonDisabled]}
                       onPress={() => adjustTask(task.id, MIN_MINUTES_PER_TASK)}
                       disabled={remaining < MIN_MINUTES_PER_TASK}
@@ -144,10 +145,10 @@ export default function TaskBuilderScreen({ route, navigation }) {
                         size={16}
                         color={remaining < MIN_MINUTES_PER_TASK ? colors.textSecondary : colors.text}
                       />
-                    </Pressable>
-                    <Pressable style={styles.removeButton} onPress={() => removeTask(task.id)}>
+                    </AnimatedPressable>
+                    <AnimatedPressable style={styles.removeButton} onPress={() => removeTask(task.id)} scaleTo={0.85}>
                       <Ionicons name="close" size={16} color={colors.textSecondary} />
-                    </Pressable>
+                    </AnimatedPressable>
                   </View>
                 </View>
               </GlassCard>
@@ -155,7 +156,7 @@ export default function TaskBuilderScreen({ route, navigation }) {
           </View>
         )}
 
-        <Pressable
+        <AnimatedPressable
           style={[styles.continueButton, !isFull && styles.continueButtonDisabled]}
           onPress={handleContinue}
           disabled={!isFull}
@@ -163,7 +164,7 @@ export default function TaskBuilderScreen({ route, navigation }) {
           <Text style={[styles.continueText, !isFull && styles.continueTextDisabled]}>
             {isFull ? `Continue · $${price}` : 'Fill your time to continue'}
           </Text>
-        </Pressable>
+        </AnimatedPressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );

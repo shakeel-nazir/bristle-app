@@ -13,6 +13,8 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 export default function GaugeRing({ progress, sublabel }) {
   const clamped = Math.max(0, Math.min(1, progress));
   const animatedProgress = useRef(new Animated.Value(0)).current;
+  const wrapScale = useRef(new Animated.Value(1)).current;
+  const wasFullRef = useRef(false);
   const [displayPercent, setDisplayPercent] = useState(0);
 
   useEffect(() => {
@@ -31,13 +33,23 @@ export default function GaugeRing({ progress, sublabel }) {
     }).start();
   }, [clamped, animatedProgress]);
 
+  useEffect(() => {
+    if (clamped >= 1 && !wasFullRef.current) {
+      Animated.sequence([
+        Animated.spring(wrapScale, { toValue: 1.08, speed: 20, bounciness: 12, useNativeDriver: true }),
+        Animated.spring(wrapScale, { toValue: 1, speed: 20, bounciness: 12, useNativeDriver: true }),
+      ]).start();
+    }
+    wasFullRef.current = clamped >= 1;
+  }, [clamped, wrapScale]);
+
   const strokeDashoffset = animatedProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [CIRCUMFERENCE, 0],
   });
 
   return (
-    <View style={styles.wrap}>
+    <Animated.View style={[styles.wrap, { transform: [{ scale: wrapScale }] }]}>
       <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
         <Defs>
           <LinearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -72,7 +84,7 @@ export default function GaugeRing({ progress, sublabel }) {
         <Text style={styles.label}>{displayPercent}%</Text>
         {sublabel ? <Text style={styles.sublabel}>{sublabel}</Text> : null}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

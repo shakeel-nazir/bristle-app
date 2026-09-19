@@ -1,23 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from '../components/GlassCard';
+import AnimatedPressable from '../components/AnimatedPressable';
+import { useApplication } from '../context/ApplicationContext';
+import { APPLICATION_STEPS as STEPS, APPLICATION_PROGRESS_PERCENT as PROGRESS_PERCENT } from '../utils/applicationStatus';
 
-const STEPS = [
-  { label: 'Application Submitted', sublabel: 'Today', done: true },
-  { label: 'Under Review', sublabel: "We're taking a look", current: true },
-  { label: 'Interview', sublabel: 'A quick call with our team' },
-  { label: 'Background Check', sublabel: 'Standard for all cleaners' },
-  { label: 'Decision', sublabel: "We'll email you either way" },
-];
-
-const CURRENT_STEP_INDEX = 1;
-const PROGRESS_PERCENT = Math.round((CURRENT_STEP_INDEX / (STEPS.length - 1)) * 100);
-
-export default function CleanerApplicationSuccessScreen({ route, navigation }) {
-  const { fullName, email, phone, experience, days, timeBlocks } = route.params;
+export default function CleanerApplicationSuccessScreen({ navigation }) {
+  const { application } = useApplication();
+  const { fullName, email, phone, experience, days, timeBlocks } = application || {};
   const firstName = fullName?.trim().split(' ')[0] || 'there';
 
   return (
@@ -98,9 +91,9 @@ export default function CleanerApplicationSuccessScreen({ route, navigation }) {
           </View>
         </GlassCard>
 
-        <Pressable style={styles.button} onPress={() => navigation.popToTop()}>
+        <AnimatedPressable style={styles.button} onPress={() => navigation.popToTop()}>
           <Text style={styles.buttonText}>Back to home</Text>
-        </Pressable>
+        </AnimatedPressable>
       </ScrollView>
     </View>
   );
