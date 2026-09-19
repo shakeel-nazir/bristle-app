@@ -13,15 +13,35 @@ export default function ConfirmScreen({ route, navigation }) {
   const { id, service, date, time, rawDate, address, viewOnly } = route.params;
   const { addBooking, cancelBooking, canBookMore, discount, clearDiscount } = useBooking();
   const discountPercent = !viewOnly && discount ? discount.percent : 0;
-  const { subtotal, discountAmount, tax, total, deposit, balance } = getPriceBreakdown(
-    service.price,
-    discountPercent,
-  );
+  const freshBreakdown = getPriceBreakdown(service.price, discountPercent);
+
+  // A booking already made keeps the exact numbers (and discount, if any) it was charged
+  // at the time — recomputing from the current global discount would misreport what happened.
+  const subtotal = viewOnly ? route.params.subtotal : freshBreakdown.subtotal;
+  const discountAmount = viewOnly ? route.params.discountAmount || 0 : freshBreakdown.discountAmount;
+  const discountCodeUsed = viewOnly ? route.params.discountCode : discount?.code;
+  const tax = viewOnly ? route.params.tax : freshBreakdown.tax;
+  const total = viewOnly ? route.params.total : freshBreakdown.total;
+  const deposit = viewOnly ? route.params.deposit : freshBreakdown.deposit;
+  const balance = viewOnly ? route.params.balance : freshBreakdown.balance;
   const [cancelVisible, setCancelVisible] = useState(false);
 
   const handleConfirm = () => {
     if (!canBookMore) return;
-    addBooking({ service, date, time, rawDate, address, subtotal, tax, total, deposit, balance });
+    addBooking({
+      service,
+      date,
+      time,
+      rawDate,
+      address,
+      subtotal,
+      discountAmount,
+      discountCode: discountPercent > 0 ? discountCodeUsed : null,
+      tax,
+      total,
+      deposit,
+      balance,
+    });
     if (discountPercent > 0) clearDiscount();
     navigation.navigate('Success', { service, date, time, rawDate, address, deposit, balance });
   };
@@ -30,6 +50,11 @@ export default function ConfirmScreen({ route, navigation }) {
     cancelBooking(id);
     setCancelVisible(false);
     navigation.popToTop();
+  };
+
+  const handleReschedule = () => {
+    cancelBooking(id);
+    navigation.navigate('Booking', { service });
   };
 
   return (
@@ -68,8 +93,8 @@ export default function ConfirmScreen({ route, navigation }) {
             <Row label="Address" value={address} />
             <View style={styles.divider} />
             <Row label="Subtotal" value={`$${subtotal.toFixed(2)}`} />
-            {discountPercent > 0 && (
-              <Row label={`Discount (${discount.code})`} value={`-$${discountAmount.toFixed(2)}`} discount />
+            {discountAmount > 0 && (
+              <Row label={`Discount (${discountCodeUsed})`} value={`-$${discountAmount.toFixed(2)}`} discount />
             )}
             <Row label={`HST (${Math.round(HST_RATE * 100)}%, Ontario)`} value={`$${tax.toFixed(2)}`} />
             <Row label="Total" value={`$${total.toFixed(2)}`} />
@@ -96,9 +121,14 @@ export default function ConfirmScreen({ route, navigation }) {
         )}
 
         {viewOnly && (
-          <AnimatedPressable style={styles.cancelButton} onPress={() => setCancelVisible(true)}>
-            <Text style={styles.cancelButtonText}>Cancel booking</Text>
-          </AnimatedPressable>
+          <>
+            <AnimatedPressable style={styles.rescheduleButton} onPress={handleReschedule}>
+              <Text style={styles.rescheduleButtonText}>Reschedule</Text>
+            </AnimatedPressable>
+            <AnimatedPressable style={styles.cancelButton} onPress={() => setCancelVisible(true)}>
+              <Text style={styles.cancelButtonText}>Cancel booking</Text>
+            </AnimatedPressable>
+          </>
         )}
       </View>
 
@@ -223,11 +253,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  cancelButton: {
+  rescheduleButton: {
+    backgroundColor: colors.accent,
     borderRadius: radius.md,
     padding: spacing.md,
     alignItems: 'center',
     marginTop: spacing.lg,
+  },
+  rescheduleButtonText: {
+    color: colors.accentText,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
   },
   cancelButtonText: {
     color: '#A32D2D',

@@ -24,7 +24,6 @@ function getGreeting() {
 
 const quickServices = [
   { id: 'becomeCleaner', label: 'Become a Cleaner', icon: 'briefcase-outline' },
-  { id: 'reschedule', label: 'Reschedule', icon: 'calendar-outline' },
   { id: 'refer', label: 'Refer a Friend', icon: 'gift-outline' },
   { id: 'redeem', label: 'Enter Savings Code', icon: 'pricetag-outline' },
   { id: 'payment', label: 'Payment', icon: 'card-outline' },

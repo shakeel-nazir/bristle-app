@@ -5,6 +5,7 @@ import { colors, spacing, radius } from '../theme/theme';
 export default function DiscountSticker({ percent, code }) {
   const scale = useRef(new Animated.Value(0)).current;
   const rotate = useRef(new Animated.Value(0)).current;
+  const wiggle = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     scale.setValue(0);
@@ -18,13 +19,39 @@ export default function DiscountSticker({ percent, code }) {
     ]).start();
   }, [percent, code, scale, rotate]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const playWiggle = () => {
+      if (cancelled) return;
+      Animated.sequence([
+        Animated.timing(wiggle, { toValue: 1, duration: 90, useNativeDriver: true }),
+        Animated.timing(wiggle, { toValue: -1, duration: 90, useNativeDriver: true }),
+        Animated.timing(wiggle, { toValue: 1, duration: 90, useNativeDriver: true }),
+        Animated.timing(wiggle, { toValue: 0, duration: 90, useNativeDriver: true }),
+      ]).start();
+    };
+
+    const interval = setInterval(playWiggle, 4500);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [wiggle]);
+
   const rotateDeg = rotate.interpolate({
     inputRange: [0, 0.6, 1],
     outputRange: ['0deg', '6deg', '14deg'],
   });
+  const wiggleDeg = wiggle.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-8deg', '0deg', '8deg'],
+  });
 
   return (
-    <Animated.View style={[styles.discountSticker, { transform: [{ scale }, { rotate: rotateDeg }] }]}>
+    <Animated.View
+      style={[styles.discountSticker, { transform: [{ scale }, { rotate: rotateDeg }, { rotate: wiggleDeg }] }]}
+    >
       <Text style={styles.discountStickerPercent}>{percent}% OFF</Text>
       <Text style={styles.discountStickerCode}>Code {code} active</Text>
     </Animated.View>
