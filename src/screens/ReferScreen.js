@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Share } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from '../components/GlassCard';
 import AnimatedPressable from '../components/AnimatedPressable';
@@ -9,6 +10,13 @@ import { getMyReferralCode, REFERRAL_DISCOUNT_PERCENT } from '../utils/referral'
 
 export default function ReferScreen({ navigation }) {
   const code = getMyReferralCode();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await Clipboard.setStringAsync(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const handleShare = async () => {
     try {
@@ -16,7 +24,7 @@ export default function ReferScreen({ navigation }) {
         message: `Book your first clean with Bristle and get ${REFERRAL_DISCOUNT_PERCENT}% off using my code ${code}! 🧽`,
       });
     } catch (e) {
-      // Sharing isn't available in this environment — nothing to do.
+      // Sharing isn't available in this environment — copying still works.
     }
   };
 
@@ -48,10 +56,21 @@ export default function ReferScreen({ navigation }) {
             </View>
             <Text style={styles.codeLabel}>Your referral code</Text>
             <Text style={styles.code}>{code}</Text>
-            <AnimatedPressable style={styles.shareButton} onPress={handleShare}>
-              <Ionicons name="share-outline" size={16} color={colors.accentText} style={{ marginRight: 6 }} />
-              <Text style={styles.shareButtonText}>Share code</Text>
-            </AnimatedPressable>
+            <View style={styles.codeButtonRow}>
+              <AnimatedPressable style={styles.copyButton} onPress={handleCopy}>
+                <Ionicons
+                  name={copied ? 'checkmark' : 'copy-outline'}
+                  size={16}
+                  color={colors.accent}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={styles.copyButtonText}>{copied ? 'Copied!' : 'Copy code'}</Text>
+              </AnimatedPressable>
+              <AnimatedPressable style={styles.shareButton} onPress={handleShare}>
+                <Ionicons name="share-outline" size={16} color={colors.accentText} style={{ marginRight: 6 }} />
+                <Text style={styles.shareButtonText}>Share code</Text>
+              </AnimatedPressable>
+            </View>
           </View>
         </GlassCard>
 
@@ -128,12 +147,31 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     marginBottom: spacing.md,
   },
+  codeButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  copyButtonText: {
+    color: colors.accent,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   shareButton: {
     flexDirection: 'row',
     backgroundColor: colors.accent,
     borderRadius: radius.md,
     paddingVertical: 10,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },

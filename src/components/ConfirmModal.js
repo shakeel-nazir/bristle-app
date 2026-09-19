@@ -1,13 +1,22 @@
-import React from 'react';
-import { Modal, View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Modal, View, Text, StyleSheet, Animated } from 'react-native';
 import { colors, spacing, radius } from '../theme/theme';
 import AnimatedPressable from './AnimatedPressable';
 
 export default function ConfirmModal({ visible, title, message, buttons, onRequestClose }) {
+  const scale = useRef(new Animated.Value(0.85)).current;
+
+  useEffect(() => {
+    if (visible) {
+      scale.setValue(0.85);
+      Animated.spring(scale, { toValue: 1, speed: 20, bounciness: 10, useNativeDriver: true }).start();
+    }
+  }, [visible, scale]);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onRequestClose}>
       <View style={styles.backdrop}>
-        <View style={styles.card}>
+        <Animated.View style={[styles.card, { transform: [{ scale }] }]}>
           <Text style={styles.title}>{title}</Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
           <View style={styles.actions}>
@@ -33,7 +42,7 @@ export default function ConfirmModal({ visible, title, message, buttons, onReque
               </AnimatedPressable>
             ))}
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );

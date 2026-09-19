@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { colors, spacing, radius } from '../theme/theme';
 import { useBooking } from '../context/BookingContext';
 import GlassCard from '../components/GlassCard';
@@ -22,6 +23,21 @@ export default function RedeemCodeScreen({ navigation }) {
     }
     setError('');
     setApplied(true);
+  };
+
+  const handlePaste = async () => {
+    try {
+      const text =
+        Platform.OS === 'web' && navigator?.clipboard?.readText
+          ? await navigator.clipboard.readText()
+          : await Clipboard.getStringAsync();
+      if (text) {
+        setCode(text.trim());
+        if (error) setError('');
+      }
+    } catch (e) {
+      setError("Couldn't access your clipboard — paste the code manually.");
+    }
   };
 
   return (
@@ -74,6 +90,10 @@ export default function RedeemCodeScreen({ navigation }) {
                   autoCapitalize="characters"
                   autoCorrect={false}
                 />
+                <AnimatedPressable style={styles.pasteButton} onPress={handlePaste} scaleTo={0.9}>
+                  <Ionicons name="clipboard-outline" size={16} color={colors.accent} style={{ marginRight: 4 }} />
+                  <Text style={styles.pasteButtonText}>Paste</Text>
+                </AnimatedPressable>
               </View>
             </GlassCard>
 
@@ -126,15 +146,32 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   inputInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: spacing.sm,
   },
   input: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 1,
     color: colors.text,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
+  },
+  pasteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.sm,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.sm,
+  },
+  pasteButtonText: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '600',
   },
   error: {
     color: '#A32D2D',

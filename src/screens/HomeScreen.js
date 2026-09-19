@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
@@ -8,6 +8,7 @@ import { useApplication } from '../context/ApplicationContext';
 import GlassCard from '../components/GlassCard';
 import ConfirmModal from '../components/ConfirmModal';
 import AnimatedPressable from '../components/AnimatedPressable';
+import DiscountSticker from '../components/DiscountSticker';
 import { buildGoogleCalendarUrl } from '../utils/calendar';
 import {
   APPLICATION_STATUS_LABEL,
@@ -37,6 +38,15 @@ export default function HomeScreen({ navigation }) {
   const [limitVisible, setLimitVisible] = useState(false);
   const [comingSoonVisible, setComingSoonVisible] = useState(false);
   const [cancelAppVisible, setCancelAppVisible] = useState(false);
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const slideIn = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeIn, { toValue: 1, duration: 420, useNativeDriver: true }),
+      Animated.spring(slideIn, { toValue: 0, speed: 14, bounciness: 6, useNativeDriver: true }),
+    ]).start();
+  }, [fadeIn, slideIn]);
 
   const handleViewBooking = (booking) => {
     navigation.navigate('Confirm', { ...booking, viewOnly: true });
@@ -99,24 +109,22 @@ export default function HomeScreen({ navigation }) {
         style={StyleSheet.absoluteFillObject}
       />
 
-      {discount && (
-        <View style={styles.discountSticker}>
-          <Text style={styles.discountStickerPercent}>{discount.percent}% OFF</Text>
-          <Text style={styles.discountStickerCode}>Code {discount.code} active</Text>
+      {discount && <DiscountSticker percent={discount.percent} code={discount.code} />}
+
+      <Animated.View style={{ opacity: fadeIn, transform: [{ translateY: slideIn }] }}>
+        <View style={styles.header}>
+          <Text style={styles.brand}>BRISTLE</Text>
+          <Text style={styles.tagline}>You decide what gets cleaned</Text>
+
+          <Text style={styles.greeting}>
+            {getGreeting()}, <Text style={styles.greetingBold}>Andrew</Text>
+          </Text>
+          <Text style={styles.subGreeting}>How can we help?</Text>
         </View>
-      )}
+      </Animated.View>
 
-      <View style={styles.header}>
-        <Text style={styles.brand}>BRISTLE</Text>
-        <Text style={styles.tagline}>You decide what gets cleaned</Text>
-
-        <Text style={styles.greeting}>
-          {getGreeting()}, <Text style={styles.greetingBold}>Andrew</Text>
-        </Text>
-        <Text style={styles.subGreeting}>How can we help?</Text>
-      </View>
-
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent}>
+      <Animated.View style={{ flex: 1, opacity: fadeIn, transform: [{ translateY: slideIn }] }}>
+        <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent}>
         {upcomingBookings.length > 0 ? (
           upcomingBookings.map((booking) => (
             <GlassCard key={booking.id} style={styles.upcomingCard} intensity={45}>
@@ -235,6 +243,7 @@ export default function HomeScreen({ navigation }) {
           ))}
         </View>
       </ScrollView>
+      </Animated.View>
 
       <ConfirmModal
         visible={limitVisible}
@@ -275,34 +284,6 @@ const styles = StyleSheet.create({
     paddingTop: 36,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
-  },
-  discountSticker: {
-    position: 'absolute',
-    top: 28,
-    right: 20,
-    zIndex: 10,
-    backgroundColor: colors.accent,
-    borderRadius: radius.sm,
-    paddingVertical: 8,
-    paddingHorizontal: spacing.sm,
-    alignItems: 'center',
-    transform: [{ rotate: '6deg' }],
-    shadowColor: '#2E2A26',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  discountStickerPercent: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.accentText,
-  },
-  discountStickerCode: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: colors.accentText,
-    marginTop: 1,
   },
   brand: {
     fontFamily: 'Fredoka_700Bold',
