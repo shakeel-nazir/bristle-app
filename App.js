@@ -19,6 +19,7 @@ import RedeemCodeScreen from './src/screens/RedeemCodeScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import AccountScreen from './src/screens/AccountScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import HomeDetailsScreen from './src/screens/HomeDetailsScreen';
 import { BookingProvider } from './src/context/BookingContext';
 import { ApplicationProvider } from './src/context/ApplicationContext';
 import { AuthProvider, authRequired, useAuth } from './src/context/AuthContext';
@@ -26,10 +27,13 @@ import { AuthProvider, authRequired, useAuth } from './src/context/AuthContext';
 const Stack = createStackNavigator();
 
 function Root() {
-  const { user, loading } = useAuth();
+  const { user, loading, profileLoading, home } = useAuth();
 
   if (authRequired && loading) return null;
   if (authRequired && !user) return <LoginScreen />;
+  if (authRequired && profileLoading) return null;
+  // Everyone (accounts and guests) tells us about their home once, right after signing in.
+  if (authRequired && !home) return <HomeDetailsScreen />;
 
   // Keyed by user so one person's bookings never show up for the next person on the device.
   return (
@@ -64,6 +68,7 @@ function Root() {
               <Stack.Screen name="RedeemCode" component={RedeemCodeScreen} />
               <Stack.Screen name="Admin" component={AdminScreen} />
               <Stack.Screen name="Account" component={AccountScreen} />
+              <Stack.Screen name="HomeDetails" component={HomeDetailsScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </ApplicationProvider>

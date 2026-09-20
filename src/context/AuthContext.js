@@ -14,7 +14,7 @@ import {
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import { auth, isFirebaseConfigured } from '../services/firebase';
-import { deleteMyData, isDemo } from '../services/dataStore';
+import { deleteMyData, getUserProfile, isDemo, saveHomeProfile } from '../services/dataStore';
 
 const AuthContext = createContext(null);
 
@@ -56,6 +56,9 @@ function randomNonce() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(authRequired);
+  // undefined = still loading, null/object = loaded (holds the saved home details, if any).
+  const [profile, setProfile] = useState(undefined);
+  const profileUid = authRequired ? user?.uid : 'local';
 
   useEffect(() => {
     if (!authRequired || !auth) return undefined;
@@ -64,6 +67,21 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (!profileUid) {
+      setProfile(undefined);
+      return undefined;
+    }
+    let active = true;
+    setProfile(undefined);
+    getUserProfile(profileUid)
+      .then((p) => active && setProfile(p || {}))
+      .catch(() => active && setProfile({}));
+    return () => {
+      active = false;
+    };
+  }, [profileUid]);
 
   // Wrap an action so callers get { ok } or { error } and never have to handle raw Firebase errors.
   const run = async (fn) => {
@@ -87,6 +105,14 @@ export function AuthProvider({ children }) {
       isGuest,
       displayFirstName,
       email: user?.email || '',
+      profileLoading: !!profileUid && profile === undefined,
+      home: profile?.home || null,
+
+      saveHome: (home) =>
+        run(async () => {
+          await saveHomeProfile(profileUid, home);
+          setProfile((prev) => ({ ...(prev || {}), home }));
+        }),
 
       signInEmail: (email, password) =>
         run(() => signInWithEmailAndPassword(auth, email.trim(), password)),
@@ -138,7 +164,7 @@ export function AuthProvider({ children }) {
           await deleteUser(current);
         }),
     };
-  }, [user, loading]);
+  }, [user, loading, profile, profileUid]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

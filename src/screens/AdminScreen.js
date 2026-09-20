@@ -15,6 +15,7 @@ import {
   watchAdminUser,
 } from '../services/adminApi';
 import { STATUS_LABELS, isFinalStatus, nextStatus } from '../utils/applicationStatus';
+import { describeHome } from '../utils/home';
 
 function formatWhen(ms) {
   if (!ms) return '';
@@ -204,6 +205,8 @@ function BookingCard({ b }) {
         </View>
         <Line label="When" value={`${b.date || ''} · ${b.time || ''}`} />
         <Line label="Address" value={b.address} />
+        <Line label="Home" value={describeHome(b.home)} />
+        <Line label="Pet notes" value={b.home?.petNotes} />
         <Line label="Tasks" value={b.service?.tasks?.map((t) => t.label).join(', ')} />
         <Line label="Total" value={money(b.total)} />
         <Line label="Deposit" value={money(b.deposit)} />

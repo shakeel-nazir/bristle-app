@@ -14,14 +14,14 @@ const BookingContext = createContext(null);
 export const MAX_BOOKINGS = 2;
 
 export function BookingProvider({ children }) {
-  const { user } = useAuth();
+  const { user, home } = useAuth();
   const uid = user?.uid || 'local';
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [discount, setDiscount] = useState(null);
 
   const addBooking = (booking) => {
     let added = false;
-    const record = { id: `${Date.now()}`, ...booking };
+    const record = { id: `${Date.now()}`, ...booking, home: home || null };
     setUpcomingBookings((prev) => {
       if (prev.length >= MAX_BOOKINGS) return prev;
       added = true;

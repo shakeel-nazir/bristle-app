@@ -162,6 +162,22 @@ export const listApplications = () =>
     ? Promise.resolve(listFromMemory('cleanerApplications'))
     : listFromFirestore('cleanerApplications', 'submittedAt');
 
+// ---- Profile (home details) ----
+export async function getUserProfile(uid) {
+  if (useMemory) return mem.users.get(uid) || null;
+  const snap = await getDoc(doc(db, 'users', uid));
+  return snap.exists() ? snap.data() : null;
+}
+
+// Throws on failure so the form can tell the person.
+export async function saveHomeProfile(uid, home) {
+  if (useMemory) {
+    mem.users.set(uid, { ...(mem.users.get(uid) || {}), home });
+    return;
+  }
+  await setDoc(doc(db, 'users', uid), { home, homeUpdatedAt: serverTimestamp() }, { merge: true });
+}
+
 // ---- Referral codes ----
 // Unambiguous characters only (no 0/O, 1/I), so codes are easy to read out and type.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

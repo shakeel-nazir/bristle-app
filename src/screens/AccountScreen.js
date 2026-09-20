@@ -7,9 +7,10 @@ import GlassCard from '../components/GlassCard';
 import ConfirmModal from '../components/ConfirmModal';
 import AnimatedPressable from '../components/AnimatedPressable';
 import { authRequired, useAuth } from '../context/AuthContext';
+import { describeHome } from '../utils/home';
 
 export default function AccountScreen({ navigation }) {
-  const { user, isGuest, email, displayFirstName, signOut, deleteAccount } = useAuth();
+  const { user, isGuest, email, displayFirstName, home, signOut, deleteAccount } = useAuth();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
 
@@ -54,6 +55,19 @@ export default function AccountScreen({ navigation }) {
                     : email || 'Signed in'}
               </Text>
             </View>
+          </View>
+        </GlassCard>
+
+        <GlassCard style={styles.card} intensity={45} onPress={() => navigation.navigate('HomeDetails')}>
+          <View style={styles.cardInner}>
+            <View style={styles.avatar}>
+              <Ionicons name="home-outline" size={22} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.name}>Your home</Text>
+              <Text style={styles.sub}>{home ? describeHome(home) : 'Add your home details'}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </View>
         </GlassCard>
 
