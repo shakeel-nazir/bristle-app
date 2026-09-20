@@ -27,6 +27,7 @@ const quickServices = [
   { id: 'payment', label: 'Payment', icon: 'card-outline' },
   { id: 'legal', label: 'Legal', icon: 'document-text-outline' },
   { id: 'support', label: 'Support', icon: 'chatbubble-ellipses-outline' },
+  { id: 'pastJobs', label: 'Past Jobs', icon: 'time-outline' },
   { id: 'account', label: 'Account', icon: 'person-outline' },
 ];
 
@@ -103,6 +104,10 @@ export default function HomeScreen({ navigation }) {
       navigation.navigate('Refer');
       return;
     }
+    if (id === 'pastJobs') {
+      navigation.navigate('PastJobs');
+      return;
+    }
     if (id === 'account') {
       navigation.navigate('Account');
       return;
@@ -160,6 +165,12 @@ export default function HomeScreen({ navigation }) {
                     </Text>
                   </View>
                 </View>
+                {booking.status === 'on_the_way' ? (
+                  <View style={styles.onTheWay}>
+                    <Ionicons name="car" size={18} color={colors.accentText} />
+                    <Text style={styles.onTheWayText}>Your cleaner is on the way!</Text>
+                  </View>
+                ) : null}
                 <View style={styles.upcomingFooterRow}>
                   <Pressable onPress={() => handleAddToCalendar(booking)}>
                     <Text style={styles.calendarLinkText}>Add to Calendar</Text>
@@ -398,6 +409,17 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 1,
   },
+  onTheWay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#3F8557',
+    borderRadius: radius.sm,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
+  onTheWayText: { color: colors.accentText, fontSize: 13, fontWeight: '700' },
   upcomingFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -40,9 +40,10 @@ if (isDemo) {
   const ago = (h) => Date.now() - h * 3600 * 1000;
   const svc = (name, price, tasks) => ({ name, price, duration: name.slice(0, 1) + ' hrs', tasks: tasks.map((label, i) => ({ id: String(i), label })) });
   [
-    { id: 'b1', service: svc('4-Hour Clean', 159, ['Kitchen', 'Bathrooms', 'Floors']), date: 'Sat, Sep 26', time: '9:00 AM', address: '123 Bank St, Centretown, ON K1P 5N5', total: 179.67, deposit: 89.84, discountAmount: 0, home: { bedrooms: 3, bathrooms: 2, pets: ['dog'], petNotes: 'Friendly lab, will be in the yard' }, status: 'active', createdMs: ago(3) },
-    { id: 'b2', service: svc('2-Hour Clean', 89, ['Kitchen', 'Living room']), date: 'Tue, Sep 29', time: '1:00 PM', address: '48 Elgin St, Ottawa, ON K2P 1L4', total: 75.43, deposit: 37.72, discountAmount: 22.25, discountCode: 'K7M2QX', home: { bedrooms: 1, bathrooms: 1, pets: [] }, status: 'active', createdMs: ago(20) },
-    { id: 'b3', service: svc('2-Hour Clean', 89, ['Bathrooms']), date: 'Fri, Sep 25', time: '11:00 AM', address: '900 Bronson Ave, Ottawa, ON K1S 4G6', total: 100.57, deposit: 50.29, discountAmount: 0, home: { bedrooms: 2, bathrooms: 1.5, pets: ['cat', 'dog'] }, status: 'cancelled', createdMs: ago(50) },
+    { id: 'b1', service: svc('4-Hour Clean', 159, ['Kitchen', 'Bathrooms', 'Floors']), date: 'Sat, Sep 26', time: '9:00 AM', address: '123 Bank St, Centretown, ON K1P 5N5', subtotal: 159, tax: 20.67, balance: 89.83, total: 179.67, deposit: 89.84, discountAmount: 0, home: { bedrooms: 3, bathrooms: 2, pets: ['dog'], petNotes: 'Friendly lab, will be in the yard' }, status: 'active', uid: 'local', createdMs: ago(3) },
+    { id: 'b2', service: svc('2-Hour Clean', 89, ['Kitchen', 'Living room']), date: 'Tue, Sep 29', time: '1:00 PM', address: '48 Elgin St, Ottawa, ON K2P 1L4', subtotal: 89, tax: 8.68, balance: 37.71, total: 75.43, deposit: 37.72, discountAmount: 22.25, discountCode: 'K7M2QX', home: { bedrooms: 1, bathrooms: 1, pets: [] }, status: 'active', createdMs: ago(20) },
+    { id: 'b4', uid: 'local', service: svc('2-Hour Clean', 89, ['Kitchen', 'Bathrooms']), date: 'Mon, Sep 14', time: '10:00 AM', address: '123 Bank St, Centretown, ON K1P 5N5', subtotal: 89, tax: 11.57, balance: 50.28, total: 100.57, deposit: 50.29, discountAmount: 0, home: { bedrooms: 3, bathrooms: 2, pets: ['dog'] }, status: 'completed', createdMs: ago(150) },
+    { id: 'b3', service: svc('2-Hour Clean', 89, ['Bathrooms']), date: 'Fri, Sep 25', time: '11:00 AM', address: '900 Bronson Ave, Ottawa, ON K1S 4G6', subtotal: 89, tax: 11.57, balance: 50.28, total: 100.57, deposit: 50.29, discountAmount: 0, home: { bedrooms: 2, bathrooms: 1.5, pets: ['cat', 'dog'] }, status: 'cancelled', createdMs: ago(50) },
   ].forEach((b) => mem.bookings.set(b.id, b));
   [
     { id: 'a1', fullName: 'Jamie Rivera', email: 'jamie@example.com', phone: '(613) 555-0100', experience: '3–5 years', days: ['Mon', 'Tue', 'Thu'], timeBlocks: ['Morning'], about: 'Certified in green cleaning products.', status: 'under_review', createdMs: ago(2) },
@@ -52,10 +53,21 @@ if (isDemo) {
 }
 
 
+const bookingListeners = new Set();
+
+function memBookingsFor(uid) {
+  return Array.from(mem.bookings.values()).filter((b) => b.uid === uid);
+}
+
+function notifyBookings() {
+  bookingListeners.forEach((l) => l.cb(memBookingsFor(l.uid)));
+}
+
 function memPatch(name, id, patch) {
   const current = mem[name].get(id);
   if (!current) return;
   mem[name].set(id, { ...current, ...patch });
+  if (name === 'bookings') notifyBookings();
   if (name === 'cleanerApplications') {
     (appListeners.get(id) || []).forEach((cb) => cb(mem[name].get(id)));
   }
@@ -71,7 +83,13 @@ async function safeWrite(label, fn) {
 
 export function saveBookingRemote(booking) {
   if (useMemory) {
-    mem.bookings.set(booking.id, { ...booking, status: 'active', createdMs: Date.now() });
+    mem.bookings.set(booking.id, {
+      ...booking,
+      uid: currentUid() || 'local',
+      status: 'active',
+      createdMs: Date.now(),
+    });
+    notifyBookings();
     return Promise.resolve();
   }
   return safeWrite('saveBooking', () =>
@@ -94,6 +112,40 @@ export function markBookingCancelledRemote(id) {
       status: 'cancelled',
       cancelledAt: serverTimestamp(),
     }),
+  );
+}
+
+// Admin action (e.g. 'on_the_way', 'completed'). Throws on failure so the admin page can tell you.
+export async function updateBookingStatus(id, status) {
+  if (useMemory) {
+    memPatch('bookings', id, { status });
+    return;
+  }
+  const stamp = { on_the_way: 'onTheWayAt', completed: 'completedAt' }[status];
+  await updateDoc(doc(collection(db, 'bookings'), id), {
+    status,
+    ...(stamp ? { [stamp]: serverTimestamp() } : {}),
+  });
+}
+
+// Follows this person's bookings live, so status changes you make show up on their phone.
+export function subscribeMyBookings(uid, callback) {
+  if (useMemory) {
+    const listener = { uid, cb: callback };
+    bookingListeners.add(listener);
+    callback(memBookingsFor(uid));
+    return () => bookingListeners.delete(listener);
+  }
+  return onSnapshot(
+    query(collection(db, 'bookings'), where('uid', '==', uid)),
+    (snap) =>
+      callback(
+        snap.docs.map((d) => {
+          const data = d.data();
+          return { ...data, id: d.id, createdMs: data.createdAt?.toMillis?.() ?? Date.now() };
+        }),
+      ),
+    () => callback([]),
   );
 }
 

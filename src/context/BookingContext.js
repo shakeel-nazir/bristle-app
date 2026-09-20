@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { REFERRAL_DISCOUNT_PERCENT } from '../utils/referral';
 import { useAuth } from './AuthContext';
 import {
@@ -7,32 +7,41 @@ import {
   markBookingCancelledRemote,
   markReferralUsed,
   saveBookingRemote,
+  subscribeMyBookings,
 } from '../services/dataStore';
 
 const BookingContext = createContext(null);
 
 export const MAX_BOOKINGS = 2;
 
+const UPCOMING = ['active', 'on_the_way'];
+
 export function BookingProvider({ children }) {
   const { user, home } = useAuth();
   const uid = user?.uid || 'local';
-  const [upcomingBookings, setUpcomingBookings] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [discount, setDiscount] = useState(null);
 
+  // Bookings live in the database; this follows them so status changes (like "on the way")
+  // appear immediately, and past bookings come back when someone signs in again.
+  useEffect(() => subscribeMyBookings(uid, setBookings), [uid]);
+
+  const upcomingBookings = useMemo(
+    () => bookings.filter((b) => UPCOMING.includes(b.status)).sort((a, b) => a.createdMs - b.createdMs),
+    [bookings],
+  );
+  const pastBookings = useMemo(
+    () => bookings.filter((b) => !UPCOMING.includes(b.status)).sort((a, b) => b.createdMs - a.createdMs),
+    [bookings],
+  );
+
   const addBooking = (booking) => {
-    let added = false;
-    const record = { id: `${Date.now()}`, ...booking, home: home || null };
-    setUpcomingBookings((prev) => {
-      if (prev.length >= MAX_BOOKINGS) return prev;
-      added = true;
-      return [...prev, record];
-    });
-    if (added) saveBookingRemote(record);
-    return added;
+    if (upcomingBookings.length >= MAX_BOOKINGS) return false;
+    saveBookingRemote({ id: `${Date.now()}`, ...booking, home: home || null });
+    return true;
   };
 
   const cancelBooking = (id) => {
-    setUpcomingBookings((prev) => prev.filter((b) => b.id !== id));
     markBookingCancelledRemote(id);
   };
 
@@ -70,7 +79,9 @@ export function BookingProvider({ children }) {
   return (
     <BookingContext.Provider
       value={{
+        allBookings: bookings,
         upcomingBookings,
+        pastBookings,
         addBooking,
         cancelBooking,
         canBookMore,

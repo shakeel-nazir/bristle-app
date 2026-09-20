@@ -10,20 +10,24 @@ import AnimatedPressable from '../components/AnimatedPressable';
 import { getPriceBreakdown, HST_RATE } from '../utils/pricing';
 
 export default function ConfirmScreen({ route, navigation }) {
-  const { id, service, date, time, rawDate, address, viewOnly } = route.params;
-  const { addBooking, cancelBooking, canBookMore, discount, consumeDiscount } = useBooking();
+  const { addBooking, cancelBooking, canBookMore, discount, consumeDiscount, allBookings } = useBooking();
+  // When viewing an existing booking, follow its live copy so status changes show up right away.
+  const live = route.params.viewOnly ? allBookings.find((b) => b.id === route.params.id) : null;
+  const params = live ? { ...route.params, ...live } : route.params;
+  const { id, service, date, time, rawDate, address, viewOnly, status } = params;
+  const canModify = viewOnly && (!status || status === 'active');
   const discountPercent = !viewOnly && discount ? discount.percent : 0;
   const freshBreakdown = getPriceBreakdown(service.price, discountPercent);
 
   // A booking already made keeps the exact numbers (and discount, if any) it was charged
   // at the time — recomputing from the current global discount would misreport what happened.
-  const subtotal = viewOnly ? route.params.subtotal : freshBreakdown.subtotal;
-  const discountAmount = viewOnly ? route.params.discountAmount || 0 : freshBreakdown.discountAmount;
-  const discountCodeUsed = viewOnly ? route.params.discountCode : discount?.code;
-  const tax = viewOnly ? route.params.tax : freshBreakdown.tax;
-  const total = viewOnly ? route.params.total : freshBreakdown.total;
-  const deposit = viewOnly ? route.params.deposit : freshBreakdown.deposit;
-  const balance = viewOnly ? route.params.balance : freshBreakdown.balance;
+  const subtotal = viewOnly ? params.subtotal ?? 0 : freshBreakdown.subtotal;
+  const discountAmount = viewOnly ? params.discountAmount || 0 : freshBreakdown.discountAmount;
+  const discountCodeUsed = viewOnly ? params.discountCode : discount?.code;
+  const tax = viewOnly ? params.tax ?? 0 : freshBreakdown.tax;
+  const total = viewOnly ? params.total ?? 0 : freshBreakdown.total;
+  const deposit = viewOnly ? params.deposit ?? 0 : freshBreakdown.deposit;
+  const balance = viewOnly ? params.balance ?? 0 : freshBreakdown.balance;
   const [cancelVisible, setCancelVisible] = useState(false);
 
   const handleConfirm = () => {
@@ -80,7 +84,25 @@ export default function ConfirmScreen({ route, navigation }) {
           )}
         </View>
 
-        <Text style={styles.title}>{viewOnly ? 'Your booking' : 'Confirm booking'}</Text>
+        <Text style={styles.title}>
+          {!viewOnly ? 'Confirm booking' : canModify || status === 'on_the_way' ? 'Your booking' : 'Past job'}
+        </Text>
+        {viewOnly && status && status !== 'active' ? (
+          <View
+            style={[
+              styles.statusBanner,
+              status === 'on_the_way' ? styles.statusGood : status === 'cancelled' ? styles.statusBad : styles.statusNeutral,
+            ]}
+          >
+            <Text style={styles.statusBannerText}>
+              {status === 'on_the_way'
+                ? 'Your cleaner is on the way!'
+                : status === 'completed'
+                  ? 'Completed'
+                  : 'Cancelled'}
+            </Text>
+          </View>
+        ) : null}
 
         <GlassCard style={styles.card} intensity={45}>
           <View style={styles.cardInner}>
@@ -120,7 +142,7 @@ export default function ConfirmScreen({ route, navigation }) {
           </AnimatedPressable>
         )}
 
-        {viewOnly && (
+        {canModify && (
           <>
             <AnimatedPressable style={styles.rescheduleButton} onPress={handleReschedule}>
               <Text style={styles.rescheduleButtonText}>Reschedule</Text>
@@ -253,6 +275,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  statusBanner: {
+    borderRadius: radius.sm,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
+  statusGood: { backgroundColor: '#3F8557' },
+  statusBad: { backgroundColor: '#A32D2D' },
+  statusNeutral: { backgroundColor: colors.primary },
+  statusBannerText: { color: colors.accentText, fontSize: 13, fontWeight: '700' },
   rescheduleButton: {
     backgroundColor: colors.accent,
     borderRadius: radius.md,

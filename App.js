@@ -20,6 +20,7 @@ import AdminScreen from './src/screens/AdminScreen';
 import AccountScreen from './src/screens/AccountScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeDetailsScreen from './src/screens/HomeDetailsScreen';
+import PastJobsScreen from './src/screens/PastJobsScreen';
 import { BookingProvider } from './src/context/BookingContext';
 import { ApplicationProvider } from './src/context/ApplicationContext';
 import { AuthProvider, authRequired, useAuth } from './src/context/AuthContext';
@@ -69,6 +70,7 @@ function Root() {
               <Stack.Screen name="Admin" component={AdminScreen} />
               <Stack.Screen name="Account" component={AccountScreen} />
               <Stack.Screen name="HomeDetails" component={HomeDetailsScreen} />
+              <Stack.Screen name="PastJobs" component={PastJobsScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </ApplicationProvider>

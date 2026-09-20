@@ -12,6 +12,7 @@ import {
   fetchBookings,
   isFirebaseConfigured,
   setApplicationStatus,
+  setBookingStatus,
   watchAdminUser,
 } from '../services/adminApi';
 import { STATUS_LABELS, isFinalStatus, nextStatus } from '../utils/applicationStatus';
@@ -31,7 +32,7 @@ export default function AdminScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [tab, setTab] = useState('bookings');
+  const [tab, setTab] = useState('upcoming');
   const [bookings, setBookings] = useState([]);
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -67,6 +68,16 @@ export default function AdminScreen({ navigation }) {
     }
   };
 
+  const changeBookingStatus = async (id, status) => {
+    setLoadError('');
+    try {
+      await setBookingStatus(id, status);
+      setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
+    } catch (e) {
+      setLoadError("Couldn't update that booking. Check your admin rules and try again.");
+    }
+  };
+
   const handleSignIn = async () => {
     setError('');
     try {
@@ -76,7 +87,10 @@ export default function AdminScreen({ navigation }) {
     }
   };
 
-  const items = tab === 'bookings' ? bookings : applications;
+  const isUpcoming = (b) => b.status === 'active' || b.status === 'on_the_way' || !b.status;
+  const upcoming = bookings.filter(isUpcoming);
+  const past = bookings.filter((b) => !isUpcoming(b));
+  const items = tab === 'upcoming' ? upcoming : tab === 'past' ? past : applications;
 
   return (
     <View style={styles.container}>
@@ -144,7 +158,8 @@ export default function AdminScreen({ navigation }) {
           <>
             <View style={styles.tabs}>
               {[
-                ['bookings', `Bookings (${bookings.length})`],
+                ['upcoming', `Upcoming (${upcoming.length})`],
+                ['past', `Past (${past.length})`],
                 ['applications', `Applications (${applications.length})`],
               ].map(([key, label]) => (
                 <AnimatedPressable
@@ -163,9 +178,9 @@ export default function AdminScreen({ navigation }) {
               <Text style={styles.muted}>Nothing here yet.</Text>
             ) : null}
 
-            {tab === 'bookings'
-              ? bookings.map((b) => <BookingCard key={b.id} b={b} />)
-              : applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} />)}
+            {tab === 'applications'
+              ? applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} />)
+              : items.map((b) => <BookingCard key={b.id} b={b} onChange={changeBookingStatus} />)}
           </>
         )}
       </ScrollView>
@@ -195,7 +210,9 @@ function Line({ label, value }) {
   );
 }
 
-function BookingCard({ b }) {
+function BookingCard({ b, onChange }) {
+  const scheduled = b.status === 'active' || !b.status;
+  const enRoute = b.status === 'on_the_way';
   return (
     <GlassCard style={styles.card} intensity={45}>
       <View style={styles.cardInner}>
@@ -212,6 +229,21 @@ function BookingCard({ b }) {
         <Line label="Deposit" value={money(b.deposit)} />
         <Line label="Discount" value={b.discountCode ? `${b.discountCode} (-${money(b.discountAmount)})` : ''} />
         <Line label="Booked" value={formatWhen(b.createdMs)} />
+        {scheduled || enRoute ? (
+          <View style={styles.actions}>
+            {scheduled ? (
+              <AnimatedPressable style={styles.advanceButton} onPress={() => onChange(b.id, 'on_the_way')}>
+                <Text style={styles.advanceText}>Cleaner is on the way</Text>
+              </AnimatedPressable>
+            ) : null}
+            <AnimatedPressable
+              style={enRoute ? styles.advanceButton : styles.secondaryButton}
+              onPress={() => onChange(b.id, 'completed')}
+            >
+              <Text style={enRoute ? styles.advanceText : styles.secondaryText}>Mark completed</Text>
+            </AnimatedPressable>
+          </View>
+        ) : null}
       </View>
     </GlassCard>
   );
@@ -295,6 +327,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   advanceText: { color: colors.accentText, fontSize: 13, fontWeight: '600' },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    paddingVertical: 9,
+    paddingHorizontal: spacing.md,
+  },
+  secondaryText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   declineButton: { paddingVertical: 10, paddingHorizontal: spacing.sm },
   declineText: { color: '#A32D2D', fontSize: 13, fontWeight: '600' },
   pillText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },

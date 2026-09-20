@@ -1,11 +1,19 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from './firebase';
-import { dataAvailable, isDemo, listApplications, listBookings, updateApplicationStatus } from './dataStore';
+import {
+  dataAvailable,
+  isDemo,
+  listApplications,
+  listBookings,
+  updateApplicationStatus,
+  updateBookingStatus,
+} from './dataStore';
 
 export const isFirebaseConfigured = dataAvailable;
 export const fetchBookings = listBookings;
 export const fetchApplications = listApplications;
 export const setApplicationStatus = updateApplicationStatus;
+export const setBookingStatus = updateBookingStatus;
 
 export function watchAdminUser(callback) {
   if (isDemo) {

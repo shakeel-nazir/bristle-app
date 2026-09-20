@@ -13,7 +13,9 @@ export const STATUS_LABELS = {
   approved: 'Approved',
   declined: 'Not selected',
   cancelled: 'Cancelled',
-  active: 'Active',
+  active: 'Scheduled',
+  on_the_way: 'On the way',
+  completed: 'Completed',
 };
 
 const COPY = {
