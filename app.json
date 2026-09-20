@@ -7,7 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "usesAppleSignIn": true,
+      "bundleIdentifier": "com.shakeelnazir.bristle"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +26,8 @@
       "baseUrl": "/bristle-app"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-apple-authentication"
     ]
   }
 }

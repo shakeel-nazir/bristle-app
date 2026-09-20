@@ -6,10 +6,11 @@ import * as Clipboard from 'expo-clipboard';
 import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from '../components/GlassCard';
 import AnimatedPressable from '../components/AnimatedPressable';
-import { getMyReferralCode, REFERRAL_DISCOUNT_PERCENT } from '../utils/referral';
+import { REFERRAL_DISCOUNT_PERCENT } from '../utils/referral';
+import { useAuth } from '../context/AuthContext';
 
 export default function ReferScreen({ navigation }) {
-  const code = getMyReferralCode();
+  const { referralCode: code } = useAuth();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {

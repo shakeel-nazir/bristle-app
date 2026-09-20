@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   onSnapshot,
@@ -8,8 +9,9 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from './firebase';
+import { auth, db, isFirebaseConfigured } from './firebase';
 
 // Demo mode is dev-only (never true in a production build): open the dev site with #demo in the
 // URL and everything runs against in-memory data, so the admin flow works without any login.
@@ -18,6 +20,8 @@ export const isDemo =
 
 const useMemory = isDemo || !isFirebaseConfigured;
 export const dataAvailable = isDemo || isFirebaseConfigured;
+
+const currentUid = () => auth?.currentUser?.uid || null;
 
 const mem = { bookings: new Map(), cleanerApplications: new Map() };
 const appListeners = new Map();
@@ -47,6 +51,7 @@ export function saveBookingRemote(booking) {
   return safeWrite('saveBooking', () =>
     setDoc(doc(collection(db, 'bookings'), booking.id), {
       ...booking,
+      uid: currentUid(),
       status: 'active',
       createdAt: serverTimestamp(),
     }),
@@ -78,6 +83,7 @@ export function saveApplicationRemote(application) {
   return safeWrite('saveApplication', () =>
     setDoc(doc(collection(db, 'cleanerApplications'), application.id), {
       ...application,
+      uid: currentUid(),
       status: 'under_review',
       submittedAt: serverTimestamp(),
     }),
@@ -146,3 +152,12 @@ export const listApplications = () =>
   useMemory
     ? Promise.resolve(listFromMemory('cleanerApplications'))
     : listFromFirestore('cleanerApplications', 'submittedAt');
+
+// Account deletion: remove everything this user created. Throws on failure.
+export async function deleteMyData(uid) {
+  if (useMemory || !uid) return;
+  for (const name of ['bookings', 'cleanerApplications']) {
+    const snap = await getDocs(query(collection(db, name), where('uid', '==', uid)));
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  }
+}

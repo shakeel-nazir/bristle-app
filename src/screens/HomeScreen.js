@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import { useBooking } from '../context/BookingContext';
 import { useApplication } from '../context/ApplicationContext';
+import { useAuth } from '../context/AuthContext';
 import GlassCard from '../components/GlassCard';
 import ConfirmModal from '../components/ConfirmModal';
 import AnimatedPressable from '../components/AnimatedPressable';
@@ -26,11 +27,13 @@ const quickServices = [
   { id: 'payment', label: 'Payment', icon: 'card-outline' },
   { id: 'legal', label: 'Legal', icon: 'document-text-outline' },
   { id: 'support', label: 'Support', icon: 'chatbubble-ellipses-outline' },
+  { id: 'account', label: 'Account', icon: 'person-outline' },
 ];
 
 export default function HomeScreen({ navigation }) {
   const { upcomingBookings, canBookMore, discount } = useBooking();
   const { application, cancelApplication } = useApplication();
+  const { displayFirstName } = useAuth();
   const [limitVisible, setLimitVisible] = useState(false);
   const [comingSoonVisible, setComingSoonVisible] = useState(false);
   const [cancelAppVisible, setCancelAppVisible] = useState(false);
@@ -100,6 +103,10 @@ export default function HomeScreen({ navigation }) {
       navigation.navigate('Refer');
       return;
     }
+    if (id === 'account') {
+      navigation.navigate('Account');
+      return;
+    }
     if (id === 'redeem') {
       navigation.navigate('RedeemCode');
       return;
@@ -126,7 +133,9 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.tagline}>You decide what gets cleaned</Text>
 
           <Text style={styles.greeting}>
-            {getGreeting()}, <Text style={styles.greetingBold}>Andrew</Text>
+            {getGreeting()}
+            {displayFirstName ? ', ' : ''}
+            {displayFirstName ? <Text style={styles.greetingBold}>{displayFirstName}</Text> : null}
           </Text>
           <Text style={styles.subGreeting}>How can we help?</Text>
         </View>

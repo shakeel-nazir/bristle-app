@@ -17,21 +17,23 @@ import CleanerApplicationSuccessScreen from './src/screens/CleanerApplicationSuc
 import ReferScreen from './src/screens/ReferScreen';
 import RedeemCodeScreen from './src/screens/RedeemCodeScreen';
 import AdminScreen from './src/screens/AdminScreen';
+import AccountScreen from './src/screens/AccountScreen';
+import LoginScreen from './src/screens/LoginScreen';
 import { BookingProvider } from './src/context/BookingContext';
 import { ApplicationProvider } from './src/context/ApplicationContext';
+import { AuthProvider, authRequired, useAuth } from './src/context/AuthContext';
 
 const Stack = createStackNavigator();
 
-export default function App() {
-  const [fontsLoaded] = useFonts({ Fredoka_700Bold });
+function Root() {
+  const { user, loading } = useAuth();
 
-  if (!fontsLoaded) {
-    return null;
-  }
+  if (authRequired && loading) return null;
+  if (authRequired && !user) return <LoginScreen />;
 
+  // Keyed by user so one person's bookings never show up for the next person on the device.
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <BookingProvider>
+    <BookingProvider key={user?.uid || 'local'}>
         <ApplicationProvider>
           <NavigationContainer>
             <Stack.Navigator
@@ -61,10 +63,26 @@ export default function App() {
               <Stack.Screen name="Refer" component={ReferScreen} />
               <Stack.Screen name="RedeemCode" component={RedeemCodeScreen} />
               <Stack.Screen name="Admin" component={AdminScreen} />
+              <Stack.Screen name="Account" component={AccountScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </ApplicationProvider>
-      </BookingProvider>
+    </BookingProvider>
+  );
+}
+
+export default function App() {
+  const [fontsLoaded] = useFonts({ Fredoka_700Bold });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <Root />
+      </AuthProvider>
     </GestureHandlerRootView>
   );
 }

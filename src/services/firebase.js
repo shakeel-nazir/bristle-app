@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { Platform } from 'react-native';
+import { getAuth, initializeAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -19,7 +20,18 @@ let auth = null;
 if (isFirebaseConfigured) {
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   db = getFirestore(app);
-  auth = getAuth(app);
+  if (Platform.OS === 'web') {
+    auth = getAuth(app);
+  } else {
+    // Keep people signed in between app launches on iOS/Android.
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const { getReactNativePersistence } = require('firebase/auth');
+    try {
+      auth = initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
+    } catch (e) {
+      auth = getAuth(app);
+    }
+  }
 } else if (__DEV__) {
   console.warn(
     '[firebase] Missing EXPO_PUBLIC_FIREBASE_* environment variables — bookings and ' +
