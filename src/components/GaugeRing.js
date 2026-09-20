@@ -99,6 +99,7 @@ const styles = StyleSheet.create({
   center: {
     position: 'absolute',
     alignItems: 'center',
+    maxWidth: SIZE - STROKE * 2 - 32,
   },
   label: {
     fontSize: 32,

@@ -220,7 +220,7 @@ export default function BecomeCleanerScreen({ navigation }) {
             <Text style={styles.subtitle}>Make sure everything looks right</Text>
 
             <View style={styles.gaugeWrap}>
-              <GaugeRing progress={1} sublabel="Application complete — you're ready to submit!" />
+              <GaugeRing progress={1} sublabel="Ready to submit" />
             </View>
 
             <GlassCard style={styles.card} intensity={45}>
