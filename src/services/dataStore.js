@@ -35,6 +35,23 @@ const mem = {
 };
 const appListeners = new Map();
 
+// Sample data so the admin page has something to show in the dev-only #demo mode.
+if (isDemo) {
+  const ago = (h) => Date.now() - h * 3600 * 1000;
+  const svc = (name, price, tasks) => ({ name, price, duration: name.slice(0, 1) + ' hrs', tasks: tasks.map((label, i) => ({ id: String(i), label })) });
+  [
+    { id: 'b1', service: svc('4-Hour Clean', 159, ['Kitchen', 'Bathrooms', 'Floors']), date: 'Sat, Sep 26', time: '9:00 AM', address: '123 Bank St, Centretown, ON K1P 5N5', total: 179.67, deposit: 89.84, discountAmount: 0, home: { bedrooms: 3, bathrooms: 2, pets: ['dog'], petNotes: 'Friendly lab, will be in the yard' }, status: 'active', createdMs: ago(3) },
+    { id: 'b2', service: svc('2-Hour Clean', 89, ['Kitchen', 'Living room']), date: 'Tue, Sep 29', time: '1:00 PM', address: '48 Elgin St, Ottawa, ON K2P 1L4', total: 75.43, deposit: 37.72, discountAmount: 22.25, discountCode: 'K7M2QX', home: { bedrooms: 1, bathrooms: 1, pets: [] }, status: 'active', createdMs: ago(20) },
+    { id: 'b3', service: svc('2-Hour Clean', 89, ['Bathrooms']), date: 'Fri, Sep 25', time: '11:00 AM', address: '900 Bronson Ave, Ottawa, ON K1S 4G6', total: 100.57, deposit: 50.29, discountAmount: 0, home: { bedrooms: 2, bathrooms: 1.5, pets: ['cat', 'dog'] }, status: 'cancelled', createdMs: ago(50) },
+  ].forEach((b) => mem.bookings.set(b.id, b));
+  [
+    { id: 'a1', fullName: 'Jamie Rivera', email: 'jamie@example.com', phone: '(613) 555-0100', experience: '3–5 years', days: ['Mon', 'Tue', 'Thu'], timeBlocks: ['Morning'], about: 'Certified in green cleaning products.', status: 'under_review', createdMs: ago(2) },
+    { id: 'a2', fullName: 'Priya Shah', email: 'priya@example.com', phone: '(613) 555-0142', experience: '5+ years', days: ['Wed', 'Fri', 'Sat'], timeBlocks: ['Morning', 'Afternoon'], status: 'interview', createdMs: ago(30) },
+    { id: 'a3', fullName: 'Marcus Lee', email: 'marcus@example.com', phone: '(613) 555-0177', experience: 'New to cleaning', days: ['Sat', 'Sun'], timeBlocks: ['Afternoon'], status: 'approved', createdMs: ago(90) },
+  ].forEach((a) => mem.cleanerApplications.set(a.id, a));
+}
+
+
 function memPatch(name, id, patch) {
   const current = mem[name].get(id);
   if (!current) return;
