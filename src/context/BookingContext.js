@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { getMyReferralCode, REFERRAL_DISCOUNT_PERCENT } from '../utils/referral';
+import { saveBookingRemote, markBookingCancelledRemote } from '../services/dataStore';
 
 const BookingContext = createContext(null);
 
@@ -11,16 +12,19 @@ export function BookingProvider({ children }) {
 
   const addBooking = (booking) => {
     let added = false;
+    const record = { id: `${Date.now()}`, ...booking };
     setUpcomingBookings((prev) => {
       if (prev.length >= MAX_BOOKINGS) return prev;
       added = true;
-      return [...prev, { id: `${Date.now()}`, ...booking }];
+      return [...prev, record];
     });
+    if (added) saveBookingRemote(record);
     return added;
   };
 
   const cancelBooking = (id) => {
     setUpcomingBookings((prev) => prev.filter((b) => b.id !== id));
+    markBookingCancelledRemote(id);
   };
 
   const applyDiscountCode = (rawCode) => {
