@@ -11,8 +11,10 @@ import {
   fetchApplications,
   fetchBookings,
   isFirebaseConfigured,
+  setApplicationStatus,
   watchAdminUser,
 } from '../services/adminApi';
+import { STATUS_LABELS, isFinalStatus, nextStatus } from '../utils/applicationStatus';
 
 function formatWhen(ms) {
   if (!ms) return '';
@@ -53,6 +55,16 @@ export default function AdminScreen({ navigation }) {
   useEffect(() => {
     if (user) load();
   }, [user, load]);
+
+  const changeStatus = async (id, status) => {
+    setLoadError('');
+    try {
+      await setApplicationStatus(id, status);
+      setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+    } catch (e) {
+      setLoadError("Couldn't update that application. Check your admin rules and try again.");
+    }
+  };
 
   const handleSignIn = async () => {
     setError('');
@@ -152,7 +164,7 @@ export default function AdminScreen({ navigation }) {
 
             {tab === 'bookings'
               ? bookings.map((b) => <BookingCard key={b.id} b={b} />)
-              : applications.map((a) => <ApplicationCard key={a.id} a={a} />)}
+              : applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} />)}
           </>
         )}
       </ScrollView>
@@ -161,11 +173,12 @@ export default function AdminScreen({ navigation }) {
 }
 
 function StatusPill({ status }) {
-  const cancelled = status === 'cancelled';
+  const bad = status === 'cancelled' || status === 'declined';
+  const good = status === 'active' || status === 'approved' || !status;
   return (
-    <View style={[styles.pill, cancelled ? styles.pillCancelled : styles.pillActive]}>
-      <Text style={[styles.pillText, cancelled ? styles.pillTextCancelled : styles.pillTextActive]}>
-        {status || 'active'}
+    <View style={[styles.pill, bad ? styles.pillCancelled : good ? styles.pillActive : styles.pillProgress]}>
+      <Text style={[styles.pillText, bad ? styles.pillTextCancelled : good ? styles.pillTextActive : styles.pillTextProgress]}>
+        {STATUS_LABELS[status] || 'Active'}
       </Text>
     </View>
   );
@@ -201,7 +214,9 @@ function BookingCard({ b }) {
   );
 }
 
-function ApplicationCard({ a }) {
+function ApplicationCard({ a, onChange }) {
+  const next = nextStatus(a.status);
+  const open = !isFinalStatus(a.status);
   return (
     <GlassCard style={styles.card} intensity={45}>
       <View style={styles.cardInner}>
@@ -216,6 +231,20 @@ function ApplicationCard({ a }) {
         <Line label="Times" value={a.timeBlocks?.join(', ')} />
         <Line label="About" value={a.about} />
         <Line label="Submitted" value={formatWhen(a.createdMs)} />
+        {open ? (
+          <View style={styles.actions}>
+            {next ? (
+              <AnimatedPressable style={styles.advanceButton} onPress={() => onChange(a.id, next)}>
+                <Text style={styles.advanceText}>
+                  {next === 'approved' ? 'Approve' : `Move to ${STATUS_LABELS[next]}`}
+                </Text>
+              </AnimatedPressable>
+            ) : null}
+            <AnimatedPressable style={styles.declineButton} onPress={() => onChange(a.id, 'declined')}>
+              <Text style={styles.declineText}>Decline</Text>
+            </AnimatedPressable>
+          </View>
+        ) : null}
       </View>
     </GlassCard>
   );
@@ -253,6 +282,18 @@ const styles = StyleSheet.create({
   pill: { borderRadius: 10, paddingVertical: 3, paddingHorizontal: 8 },
   pillActive: { backgroundColor: 'rgba(63,133,87,0.15)' },
   pillCancelled: { backgroundColor: 'rgba(163,45,45,0.12)' },
+  pillProgress: { backgroundColor: 'rgba(232,115,74,0.15)' },
+  pillTextProgress: { color: colors.accent },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
+  advanceButton: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+  },
+  advanceText: { color: colors.accentText, fontSize: 13, fontWeight: '600' },
+  declineButton: { paddingVertical: 10, paddingHorizontal: spacing.sm },
+  declineText: { color: '#A32D2D', fontSize: 13, fontWeight: '600' },
   pillText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
   pillTextActive: { color: '#3F8557' },
   pillTextCancelled: { color: '#A32D2D' },

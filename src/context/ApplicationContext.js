@@ -1,19 +1,38 @@
-import React, { createContext, useContext, useState } from 'react';
-import { saveApplicationRemote, markApplicationCancelledRemote } from '../services/dataStore';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import {
+  markApplicationCancelledRemote,
+  saveApplicationRemote,
+  subscribeApplication,
+} from '../services/dataStore';
 
 const ApplicationContext = createContext(null);
 
+// Random (not timestamp) so an application's id can't be guessed by someone else.
+function randomId() {
+  return `${Math.random().toString(36).slice(2, 12)}${Date.now().toString(36)}${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+}
+
 export function ApplicationProvider({ children }) {
   const [application, setApplication] = useState(null);
+  const applicationId = application?.id;
+
+  useEffect(() => {
+    if (!applicationId) return undefined;
+    return subscribeApplication(applicationId, (data) => {
+      setApplication((prev) => (prev && prev.id === applicationId ? { ...prev, status: data.status } : prev));
+    });
+  }, [applicationId]);
 
   const submitApplication = (data) => {
-    const record = { id: `${Date.now()}`, ...data, submittedAt: Date.now() };
+    const record = { id: randomId(), ...data, status: 'under_review', submittedAt: Date.now() };
     setApplication(record);
     saveApplicationRemote(record);
   };
 
   const cancelApplication = () => {
-    if (application?.id) markApplicationCancelledRemote(application.id);
+    if (applicationId) markApplicationCancelledRemote(applicationId);
     setApplication(null);
   };
 

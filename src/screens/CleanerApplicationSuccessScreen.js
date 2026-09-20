@@ -6,11 +6,12 @@ import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from '../components/GlassCard';
 import AnimatedPressable from '../components/AnimatedPressable';
 import { useApplication } from '../context/ApplicationContext';
-import { APPLICATION_STEPS as STEPS, APPLICATION_PROGRESS_PERCENT as PROGRESS_PERCENT } from '../utils/applicationStatus';
+import { getApplicationView } from '../utils/applicationStatus';
 
 export default function CleanerApplicationSuccessScreen({ navigation }) {
   const { application } = useApplication();
   const { fullName, email, phone, experience, days, timeBlocks } = application || {};
+  const { steps: STEPS, percent: PROGRESS_PERCENT, headline, message } = getApplicationView(application?.status);
   const firstName = fullName?.trim().split(' ')[0] || 'there';
 
   return (
@@ -33,10 +34,8 @@ export default function CleanerApplicationSuccessScreen({ navigation }) {
                 <Ionicons name="time-outline" size={20} color={colors.accent} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.statusTitle}>In progress</Text>
-                <Text style={styles.statusMessage}>
-                  We're on it! Your application is being reviewed by our team.
-                </Text>
+                <Text style={styles.statusTitle}>{headline}</Text>
+                <Text style={styles.statusMessage}>{message}</Text>
               </View>
             </View>
 

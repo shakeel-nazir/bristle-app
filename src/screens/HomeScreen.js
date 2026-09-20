@@ -10,10 +10,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import AnimatedPressable from '../components/AnimatedPressable';
 import DiscountSticker from '../components/DiscountSticker';
 import { buildGoogleCalendarUrl } from '../utils/calendar';
-import {
-  APPLICATION_STATUS_LABEL,
-  APPLICATION_PROGRESS_PERCENT,
-} from '../utils/applicationStatus';
+import { getApplicationView } from '../utils/applicationStatus';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -37,13 +34,18 @@ export default function HomeScreen({ navigation }) {
   const [limitVisible, setLimitVisible] = useState(false);
   const [comingSoonVisible, setComingSoonVisible] = useState(false);
   const [cancelAppVisible, setCancelAppVisible] = useState(false);
+  const applicationView = getApplicationView(application?.status);
   const fadeIn = useRef(new Animated.Value(0)).current;
   const slideIn = useRef(new Animated.Value(16)).current;
 
   useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.hash === '#admin') {
-      navigation.navigate('Admin');
-    }
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
+    const check = () => {
+      if (window.location.hash.includes('admin')) navigation.navigate('Admin');
+    };
+    check();
+    window.addEventListener('hashchange', check);
+    return () => window.removeEventListener('hashchange', check);
   }, [navigation]);
 
   useEffect(() => {
@@ -188,15 +190,15 @@ export default function HomeScreen({ navigation }) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.applicationTitle} numberOfLines={1}>Cleaner application</Text>
-                  <Text style={styles.applicationSubtitle}>{APPLICATION_STATUS_LABEL}</Text>
+                  <Text style={styles.applicationSubtitle}>{applicationView.label}</Text>
                 </View>
               </View>
 
               <View style={styles.applicationProgressRow}>
                 <View style={styles.applicationProgressTrack}>
-                  <View style={[styles.applicationProgressFill, { width: `${APPLICATION_PROGRESS_PERCENT}%` }]} />
+                  <View style={[styles.applicationProgressFill, { width: `${applicationView.percent}%` }]} />
                 </View>
-                <Text style={styles.applicationProgressLabel}>{APPLICATION_PROGRESS_PERCENT}%</Text>
+                <Text style={styles.applicationProgressLabel}>{applicationView.percent}%</Text>
               </View>
 
               <View style={styles.applicationFooterRow}>

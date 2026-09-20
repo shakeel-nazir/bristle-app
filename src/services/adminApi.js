@@ -1,10 +1,17 @@
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, db, isFirebaseConfigured } from './firebase';
+import { auth } from './firebase';
+import { dataAvailable, isDemo, listApplications, listBookings, updateApplicationStatus } from './dataStore';
 
-export { isFirebaseConfigured };
+export const isFirebaseConfigured = dataAvailable;
+export const fetchBookings = listBookings;
+export const fetchApplications = listApplications;
+export const setApplicationStatus = updateApplicationStatus;
 
 export function watchAdminUser(callback) {
+  if (isDemo) {
+    callback({ email: 'demo@local' });
+    return () => {};
+  }
   if (!auth) {
     callback(null);
     return () => {};
@@ -17,17 +24,5 @@ export function adminSignIn(email, password) {
 }
 
 export function adminSignOut() {
-  return signOut(auth);
+  return isDemo ? Promise.resolve() : signOut(auth);
 }
-
-async function fetchCollection(name, orderField) {
-  const snap = await getDocs(query(collection(db, name), orderBy(orderField, 'desc')));
-  return snap.docs.map((d) => {
-    const data = d.data();
-    const ts = data[orderField];
-    return { ...data, id: d.id, createdMs: ts?.toMillis ? ts.toMillis() : 0 };
-  });
-}
-
-export const fetchBookings = () => fetchCollection('bookings', 'createdAt');
-export const fetchApplications = () => fetchCollection('cleanerApplications', 'submittedAt');
