@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
@@ -22,6 +22,7 @@ import {
 } from '../services/adminApi';
 import { STATUS_LABELS, isFinalStatus, nextStatus } from '../utils/applicationStatus';
 import { describeHome } from '../utils/home';
+import { cleanerStats } from '../utils/cleanerStats';
 
 function formatWhen(ms) {
   if (!ms) return '';
@@ -129,7 +130,8 @@ export default function AdminScreen({ navigation }) {
   const isUpcoming = (b) => b.status === 'active' || b.status === 'on_the_way' || !b.status;
   const upcoming = bookings.filter(isUpcoming);
   const past = bookings.filter((b) => !isUpcoming(b));
-  const items = tab === 'upcoming' ? upcoming : tab === 'past' ? past : applications;
+  const cleaners = applications.filter((a) => a.status === 'approved');
+  const items = tab === 'upcoming' ? upcoming : tab === 'past' ? past : tab === 'cleaners' ? cleaners : applications;
 
   return (
     <View style={styles.container}>
@@ -199,6 +201,7 @@ export default function AdminScreen({ navigation }) {
               {[
                 ['upcoming', `Upcoming (${upcoming.length})`],
                 ['past', `Past (${past.length})`],
+                ['cleaners', `Cleaners (${cleaners.length})`],
                 ['applications', `Applications (${applications.length})`],
               ].map(([key, label]) => (
                 <AnimatedPressable
@@ -217,7 +220,9 @@ export default function AdminScreen({ navigation }) {
               <Text style={styles.muted}>Nothing here yet.</Text>
             ) : null}
 
-            {tab === 'applications'
+            {tab === 'cleaners'
+              ? cleaners.map((c) => <CleanerCard key={c.id} c={c} bookings={bookings} />)
+              : tab === 'applications'
               ? applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} onDelete={() => setToDelete({ kind: 'application', id: a.id, label: a.fullName || 'this applicant' })} />)
               : items.map((b) => <BookingCard key={b.id} b={b} onChange={changeBookingStatus} onAssign={() => setAssigning(b)} onDelete={() => setToDelete({ kind: 'booking', id: b.id, label: `${b.service?.name || 'this booking'} on ${b.date || ''}` })} />)}
           </>
@@ -317,6 +322,70 @@ function BookingCard({ b, onChange, onAssign, onDelete }) {
   );
 }
 
+function Stat({ value, label }) {
+  return (
+    <View style={styles.stat}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+const STATE_LABEL = { en_route: 'En route', booked: 'Booked', free: 'Free' };
+
+function CleanerCard({ c, bookings }) {
+  const st = cleanerStats(c, bookings);
+  const where = st.enRoute
+    ? `On the way to ${st.enRoute.address}`
+    : st.next
+      ? `Next: ${st.next.date} · ${st.next.time} — ${st.next.address}`
+      : 'No upcoming jobs';
+  return (
+    <GlassCard style={styles.card} intensity={45}>
+      <View style={styles.cardInner}>
+        <View style={styles.cardHead}>
+          <Text style={styles.cardTitle}>{c.fullName || 'Cleaner'}</Text>
+          <View style={[styles.pill, st.state === 'free' ? styles.pillActive : styles.pillProgress]}>
+            <Text style={[styles.pillText, st.state === 'free' ? styles.pillTextActive : styles.pillTextProgress]}>
+              {STATE_LABEL[st.state]}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.stats}>
+          <Stat value={st.completed} label="Jobs done" />
+          <Stat value={st.upcoming} label="Upcoming" />
+          <Stat value={`${st.freePercent}%`} label="Free (7 days)" />
+        </View>
+
+        <Line label="Right now" value={where} />
+        <Line label="Booked, next 7 days" value={`${st.bookedHours} of ${st.capacity} hrs`} />
+        <Line label="Hours worked" value={`${st.completedHours} hrs`} />
+        <Line label="Works" value={`${(c.days || []).join(', ')} · ${(c.timeBlocks || []).join(', ')}`} />
+        <Line label="Experience" value={c.experience} />
+        <Line label="Email" value={c.email} />
+        <Line label="Phone" value={c.phone} />
+
+        <View style={styles.actions}>
+          {c.phone ? (
+            <AnimatedPressable
+              style={styles.advanceButton}
+              onPress={() => Linking.openURL(`tel:${String(c.phone).replace(/[^\d+]/g, '')}`)}
+            >
+              <Text style={styles.advanceText}>Call</Text>
+            </AnimatedPressable>
+          ) : null}
+          {c.email ? (
+            <AnimatedPressable style={styles.secondaryButton} onPress={() => Linking.openURL(`mailto:${c.email}`)}>
+              <Text style={styles.secondaryText}>Email</Text>
+            </AnimatedPressable>
+          ) : null}
+        </View>
+      </View>
+    </GlassCard>
+  );
+}
+
 function ApplicationCard({ a, onChange, onDelete }) {
   const next = nextStatus(a.status);
   const open = !isFinalStatus(a.status);
@@ -398,6 +467,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   advanceText: { color: colors.accentText, fontSize: 13, fontWeight: '600' },
+  stats: { flexDirection: 'row', gap: spacing.sm, marginVertical: spacing.sm },
+  stat: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: radius.sm,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  statValue: { fontSize: 20, fontWeight: '800', color: colors.primary },
+  statLabel: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
   secondaryButton: {
     borderWidth: 1,
     borderColor: colors.accent,
