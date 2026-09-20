@@ -21,7 +21,11 @@ export function ApplicationProvider({ children }) {
   useEffect(() => {
     if (!applicationId) return undefined;
     return subscribeApplication(applicationId, (data) => {
-      setApplication((prev) => (prev && prev.id === applicationId ? { ...prev, status: data.status } : prev));
+      // data is null when the application was deleted on the admin side.
+      setApplication((prev) => {
+        if (!prev || prev.id !== applicationId) return prev;
+        return data ? { ...prev, status: data.status } : null;
+      });
     });
   }, [applicationId]);
 

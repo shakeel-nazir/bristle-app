@@ -25,8 +25,6 @@ const quickServices = [
   { id: 'refer', label: 'Refer a Friend', icon: 'gift-outline' },
   { id: 'redeem', label: 'Enter Savings Code', icon: 'pricetag-outline' },
   { id: 'payment', label: 'Payment', icon: 'card-outline' },
-  { id: 'legal', label: 'Legal', icon: 'document-text-outline' },
-  { id: 'support', label: 'Support', icon: 'chatbubble-ellipses-outline' },
   { id: 'pastJobs', label: 'Past Jobs', icon: 'time-outline' },
   { id: 'account', label: 'Account', icon: 'person-outline' },
 ];
@@ -270,6 +268,16 @@ export default function HomeScreen({ navigation }) {
               </View>
             </GlassCard>
           ))}
+        </View>
+
+        <View style={styles.footerLinks}>
+          <Pressable onPress={() => navigation.navigate('Legal')} hitSlop={10}>
+            <Text style={styles.footerLink}>Legal</Text>
+          </Pressable>
+          <Text style={styles.footerDot}>·</Text>
+          <Pressable onPress={() => setComingSoonVisible(true)} hitSlop={10}>
+            <Text style={styles.footerLink}>Support</Text>
+          </Pressable>
         </View>
       </ScrollView>
       </Animated.View>
@@ -562,6 +570,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  footerLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xl,
+  },
+  footerLink: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  footerDot: { fontSize: 12, color: colors.textSecondary },
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

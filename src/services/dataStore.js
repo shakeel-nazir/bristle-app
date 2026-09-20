@@ -193,6 +193,25 @@ export async function updateApplicationStatus(id, status) {
   });
 }
 
+// Admin action: permanently removes a booking / application. Throws on failure.
+export async function deleteBooking(id) {
+  if (useMemory) {
+    mem.bookings.delete(id);
+    notifyBookings();
+    return;
+  }
+  await deleteDoc(doc(collection(db, 'bookings'), id));
+}
+
+export async function deleteApplication(id) {
+  if (useMemory) {
+    mem.cleanerApplications.delete(id);
+    (appListeners.get(id) || []).forEach((cb) => cb(null));
+    return;
+  }
+  await deleteDoc(doc(collection(db, 'cleanerApplications'), id));
+}
+
 // Lets the applicant's device follow the status you set. Returns an unsubscribe function.
 export function subscribeApplication(id, callback) {
   if (useMemory) {
@@ -205,6 +224,7 @@ export function subscribeApplication(id, callback) {
     doc(db, 'cleanerApplications', id),
     (snap) => {
       if (snap.exists()) callback(snap.data());
+      else if (!snap.metadata.hasPendingWrites) callback(null); // deleted by the admin
     },
     () => {},
   );

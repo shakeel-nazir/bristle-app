@@ -2,6 +2,8 @@ import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebas
 import { auth } from './firebase';
 import {
   dataAvailable,
+  deleteApplication,
+  deleteBooking,
   isDemo,
   listApplications,
   listBookings,
@@ -14,6 +16,8 @@ export const fetchBookings = listBookings;
 export const fetchApplications = listApplications;
 export const setApplicationStatus = updateApplicationStatus;
 export const setBookingStatus = updateBookingStatus;
+export const removeBooking = deleteBooking;
+export const removeApplication = deleteApplication;
 
 export function watchAdminUser(callback) {
   if (isDemo) {

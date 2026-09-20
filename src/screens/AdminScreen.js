@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from '../components/GlassCard';
 import AnimatedPressable from '../components/AnimatedPressable';
+import ConfirmModal from '../components/ConfirmModal';
 import {
   adminSignIn,
   adminSignOut,
@@ -12,6 +13,8 @@ import {
   fetchBookings,
   isFirebaseConfigured,
   setApplicationStatus,
+  removeApplication,
+  removeBooking,
   setBookingStatus,
   watchAdminUser,
 } from '../services/adminApi';
@@ -37,6 +40,7 @@ export default function AdminScreen({ navigation }) {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [toDelete, setToDelete] = useState(null); // { kind: 'booking' | 'application', id, label }
 
   useEffect(() => watchAdminUser(setUser), []);
 
@@ -75,6 +79,24 @@ export default function AdminScreen({ navigation }) {
       setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     } catch (e) {
       setLoadError("Couldn't update that booking. Check your admin rules and try again.");
+    }
+  };
+
+  const confirmDelete = async () => {
+    const target = toDelete;
+    setToDelete(null);
+    if (!target) return;
+    setLoadError('');
+    try {
+      if (target.kind === 'booking') {
+        await removeBooking(target.id);
+        setBookings((prev) => prev.filter((b) => b.id !== target.id));
+      } else {
+        await removeApplication(target.id);
+        setApplications((prev) => prev.filter((a) => a.id !== target.id));
+      }
+    } catch (e) {
+      setLoadError("Couldn't delete that. Check your admin rules and try again.");
     }
   };
 
@@ -179,11 +201,22 @@ export default function AdminScreen({ navigation }) {
             ) : null}
 
             {tab === 'applications'
-              ? applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} />)
-              : items.map((b) => <BookingCard key={b.id} b={b} onChange={changeBookingStatus} />)}
+              ? applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} onDelete={() => setToDelete({ kind: 'application', id: a.id, label: a.fullName || 'this applicant' })} />)
+              : items.map((b) => <BookingCard key={b.id} b={b} onChange={changeBookingStatus} onDelete={() => setToDelete({ kind: 'booking', id: b.id, label: `${b.service?.name || 'this booking'} on ${b.date || ''}` })} />)}
           </>
         )}
       </ScrollView>
+
+      <ConfirmModal
+        visible={!!toDelete}
+        title={toDelete?.kind === 'booking' ? 'Delete this booking?' : 'Delete this application?'}
+        message={`This permanently deletes ${toDelete?.label || ''}. It can’t be undone.`}
+        onRequestClose={() => setToDelete(null)}
+        buttons={[
+          { text: 'Keep', style: 'cancel', onPress: () => setToDelete(null) },
+          { text: 'Delete', style: 'destructive', onPress: confirmDelete },
+        ]}
+      />
     </View>
   );
 }
@@ -210,7 +243,7 @@ function Line({ label, value }) {
   );
 }
 
-function BookingCard({ b, onChange }) {
+function BookingCard({ b, onChange, onDelete }) {
   const scheduled = b.status === 'active' || !b.status;
   const enRoute = b.status === 'on_the_way';
   return (
@@ -229,27 +262,30 @@ function BookingCard({ b, onChange }) {
         <Line label="Deposit" value={money(b.deposit)} />
         <Line label="Discount" value={b.discountCode ? `${b.discountCode} (-${money(b.discountAmount)})` : ''} />
         <Line label="Booked" value={formatWhen(b.createdMs)} />
-        {scheduled || enRoute ? (
-          <View style={styles.actions}>
+        <View style={styles.actions}>
             {scheduled ? (
               <AnimatedPressable style={styles.advanceButton} onPress={() => onChange(b.id, 'on_the_way')}>
                 <Text style={styles.advanceText}>Cleaner is on the way</Text>
               </AnimatedPressable>
             ) : null}
+          {scheduled || enRoute ? (
             <AnimatedPressable
               style={enRoute ? styles.advanceButton : styles.secondaryButton}
               onPress={() => onChange(b.id, 'completed')}
             >
               <Text style={enRoute ? styles.advanceText : styles.secondaryText}>Mark completed</Text>
             </AnimatedPressable>
-          </View>
-        ) : null}
+          ) : null}
+          <AnimatedPressable style={styles.deleteButton} onPress={onDelete}>
+            <Text style={styles.declineText}>Delete</Text>
+          </AnimatedPressable>
+        </View>
       </View>
     </GlassCard>
   );
 }
 
-function ApplicationCard({ a, onChange }) {
+function ApplicationCard({ a, onChange, onDelete }) {
   const next = nextStatus(a.status);
   const open = !isFinalStatus(a.status);
   return (
@@ -266,20 +302,23 @@ function ApplicationCard({ a, onChange }) {
         <Line label="Times" value={a.timeBlocks?.join(', ')} />
         <Line label="About" value={a.about} />
         <Line label="Submitted" value={formatWhen(a.createdMs)} />
-        {open ? (
-          <View style={styles.actions}>
-            {next ? (
+        <View style={styles.actions}>
+          {open && next ? (
               <AnimatedPressable style={styles.advanceButton} onPress={() => onChange(a.id, next)}>
                 <Text style={styles.advanceText}>
                   {next === 'approved' ? 'Approve' : `Move to ${STATUS_LABELS[next]}`}
                 </Text>
               </AnimatedPressable>
-            ) : null}
+          ) : null}
+          {open ? (
             <AnimatedPressable style={styles.declineButton} onPress={() => onChange(a.id, 'declined')}>
               <Text style={styles.declineText}>Decline</Text>
             </AnimatedPressable>
-          </View>
-        ) : null}
+          ) : null}
+          <AnimatedPressable style={styles.deleteButton} onPress={onDelete}>
+            <Text style={styles.declineText}>Delete</Text>
+          </AnimatedPressable>
+        </View>
       </View>
     </GlassCard>
   );
@@ -335,6 +374,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   secondaryText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  deleteButton: { paddingVertical: 10, paddingHorizontal: spacing.sm, marginLeft: 'auto' },
   declineButton: { paddingVertical: 10, paddingHorizontal: spacing.sm },
   declineText: { color: '#A32D2D', fontSize: 13, fontWeight: '600' },
   pillText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
