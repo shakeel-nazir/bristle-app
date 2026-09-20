@@ -41,6 +41,11 @@ function blocksNeeded(slot) {
   return Array.from(needed);
 }
 
+// Do two parsed slots (from parseSlot) overlap in time?
+export function slotsOverlap(a, b) {
+  return !!a && !!b && a.start < b.end && b.start < a.end;
+}
+
 export function describeSlot(booking) {
   const slot = parseSlot(booking);
   return slot ? `${booking.date} · ${booking.time} · ${slot.hours} hrs` : `${booking.date} · ${booking.time}`;
@@ -64,8 +69,7 @@ export function checkCleaner(cleaner, booking, allBookings) {
   const clash = allBookings.find((other) => {
     if (other.id === booking.id || other.cleanerId !== cleaner.id || !isActiveJob(other)) return false;
     if (other.date !== booking.date) return false;
-    const o = parseSlot(other);
-    return o && slot.start < o.end && o.start < slot.end;
+    return slotsOverlap(slot, parseSlot(other));
   });
   if (clash) return { ok: false, reason: `Already booked at ${clash.time} that day` };
 

@@ -69,7 +69,7 @@ export default function AdminScreen({ navigation }) {
   const changeStatus = async (id, status) => {
     setLoadError('');
     try {
-      await setApplicationStatus(id, status);
+      await setApplicationStatus(id, status, applications.find((a) => a.id === id));
       setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
     } catch (e) {
       setLoadError("Couldn't update that application. Check your admin rules and try again.");

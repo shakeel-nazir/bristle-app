@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,8 @@ import MonthCalendar from '../components/MonthCalendar';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import GlassCard from '../components/GlassCard';
 import AnimatedPressable from '../components/AnimatedPressable';
+import { getSupply } from '../services/dataStore';
+import { openTimesFor } from '../utils/availability';
 
 const timeSlots = ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'];
 
@@ -19,10 +21,6 @@ function formatDate(date) {
   return `${WEEKDAY_SHORT[date.getDay()]}, ${MONTH_SHORT[date.getMonth()]} ${date.getDate()}`;
 }
 
-// Cleaners aren't available on Sundays.
-function isDateAvailable(date) {
-  return date.getDay() !== 0;
-}
 
 export default function BookingScreen({ route, navigation }) {
   const { service } = route.params;
@@ -31,6 +29,23 @@ export default function BookingScreen({ route, navigation }) {
   const [address, setAddress] = useState('');
   const [addressValid, setAddressValid] = useState(false);
   const [error, setError] = useState('');
+  // Which times are open depends on which cleaners are free (see getSupply). null = still loading.
+  const [supply, setSupply] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    getSupply()
+      .then((s) => active && setSupply(s))
+      .catch(() => active && setSupply({ enforced: false })); // if it can't be checked, don't block booking
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const enforced = !!supply?.enforced;
+  const timesFor = (date) => (enforced ? openTimesFor(formatDate(date), service, supply, timeSlots) : timeSlots);
+  // No Sundays, and (once loaded) no days where nobody could take the job.
+  const isDateAvailable = (date) => date.getDay() !== 0 && (!enforced || timesFor(date).length > 0);
 
   const handleSelectDate = (date) => {
     setSelectedDate(date);
@@ -110,7 +125,7 @@ export default function BookingScreen({ route, navigation }) {
               <>
                 <Text style={styles.timesForDate}>{formatDate(selectedDate)}</Text>
                 <View style={styles.row}>
-                  {timeSlots.map((t) => (
+                  {timesFor(selectedDate).map((t) => (
                     <AnimatedPressable
                       key={t}
                       style={[styles.chip, selectedTime === t && styles.chipSelected]}
@@ -125,7 +140,13 @@ export default function BookingScreen({ route, navigation }) {
                 </View>
               </>
             ) : (
-              <Text style={styles.timesEmpty}>Pick a date to see open slots</Text>
+              <Text style={styles.timesEmpty}>
+                {supply === null
+                  ? 'Checking which cleaners are free…'
+                  : enforced && !supply.cleaners.length
+                    ? 'We’re getting our cleaners set up — booking opens very soon.'
+                    : 'Pick a date to see open slots'}
+              </Text>
             )}
           </View>
         </GlassCard>

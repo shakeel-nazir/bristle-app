@@ -12,8 +12,10 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import * as Crypto from 'expo-crypto';
+import { isActiveJob, parseSlot } from '../utils/matching';
 import { auth, db, isFirebaseConfigured } from './firebase';
 
 // Demo mode is dev-only (never true in a production build): open the dev site with #demo in the
@@ -75,6 +77,11 @@ function memPatch(name, id, patch) {
   }
 }
 
+// Public, personal-details-free records that let the booking screen know which times are open.
+const busyRef = (id) => doc(db, 'busySlots', id);
+const availabilityRef = (id) => doc(db, 'cleanerAvailability', id);
+const busyFor = (b) => ({ date: b.date, time: b.time, hours: parseSlot(b)?.hours || 2, cleanerId: null, active: true });
+
 async function safeWrite(label, fn) {
   try {
     await fn();
@@ -94,14 +101,17 @@ export function saveBookingRemote(booking) {
     notifyBookings();
     return Promise.resolve();
   }
-  return safeWrite('saveBooking', () =>
-    setDoc(doc(collection(db, 'bookings'), booking.id), {
+  return safeWrite('saveBooking', async () => {
+    const batch = writeBatch(db);
+    batch.set(doc(collection(db, 'bookings'), booking.id), {
       ...booking,
       uid: currentUid(),
       status: 'active',
       createdAt: serverTimestamp(),
-    }),
-  );
+    });
+    batch.set(busyRef(booking.id), busyFor(booking));
+    await batch.commit();
+  });
 }
 
 export function markBookingCancelledRemote(id) {
@@ -109,12 +119,12 @@ export function markBookingCancelledRemote(id) {
     memPatch('bookings', id, { status: 'cancelled' });
     return Promise.resolve();
   }
-  return safeWrite('cancelBooking', () =>
-    updateDoc(doc(collection(db, 'bookings'), id), {
-      status: 'cancelled',
-      cancelledAt: serverTimestamp(),
-    }),
-  );
+  return safeWrite('cancelBooking', async () => {
+    const batch = writeBatch(db);
+    batch.update(doc(collection(db, 'bookings'), id), { status: 'cancelled', cancelledAt: serverTimestamp() });
+    batch.set(busyRef(id), { active: false }, { merge: true }); // frees the time for other customers
+    await batch.commit();
+  });
 }
 
 // Admin action (e.g. 'on_the_way', 'completed'). Throws on failure so the admin page can tell you.
@@ -124,10 +134,13 @@ export async function updateBookingStatus(id, status) {
     return;
   }
   const stamp = { on_the_way: 'onTheWayAt', completed: 'completedAt' }[status];
-  await updateDoc(doc(collection(db, 'bookings'), id), {
+  const batch = writeBatch(db);
+  batch.update(doc(collection(db, 'bookings'), id), {
     status,
     ...(stamp ? { [stamp]: serverTimestamp() } : {}),
   });
+  if (!isActiveJob({ status })) batch.set(busyRef(id), { active: false }, { merge: true });
+  await batch.commit();
 }
 
 // Follows this person's bookings live, so status changes you make show up on their phone.
@@ -175,24 +188,35 @@ export function markApplicationCancelledRemote(id) {
     memPatch('cleanerApplications', id, { status: 'cancelled' });
     return Promise.resolve();
   }
-  return safeWrite('cancelApplication', () =>
-    updateDoc(doc(collection(db, 'cleanerApplications'), id), {
+  return safeWrite('cancelApplication', async () => {
+    const batch = writeBatch(db);
+    batch.update(doc(collection(db, 'cleanerApplications'), id), {
       status: 'cancelled',
       cancelledAt: serverTimestamp(),
-    }),
-  );
+    });
+    batch.delete(availabilityRef(id)); // a withdrawn applicant is no longer bookable
+    await batch.commit();
+  });
 }
 
 // Admin action. Throws on failure so the admin page can tell you.
-export async function updateApplicationStatus(id, status) {
+export async function updateApplicationStatus(id, status, application) {
   if (useMemory) {
     memPatch('cleanerApplications', id, { status });
     return;
   }
-  await updateDoc(doc(collection(db, 'cleanerApplications'), id), {
-    status,
-    updatedAt: serverTimestamp(),
-  });
+  const batch = writeBatch(db);
+  batch.update(doc(collection(db, 'cleanerApplications'), id), { status, updatedAt: serverTimestamp() });
+  // Only approved cleaners count towards which times customers can book.
+  if (status === 'approved' && application) {
+    batch.set(availabilityRef(id), {
+      days: application.days || [],
+      timeBlocks: application.timeBlocks || [],
+    });
+  } else {
+    batch.delete(availabilityRef(id));
+  }
+  await batch.commit();
 }
 
 // Admin action: give a booking a cleaner (an approved applicant), or pass null to unassign.
@@ -202,7 +226,10 @@ export async function assignBookingCleaner(id, cleaner) {
     memPatch('bookings', id, fields);
     return;
   }
-  await updateDoc(doc(collection(db, 'bookings'), id), fields);
+  const batch = writeBatch(db);
+  batch.update(doc(collection(db, 'bookings'), id), fields);
+  batch.set(busyRef(id), { cleanerId: fields.cleanerId }, { merge: true });
+  await batch.commit();
 }
 
 // Admin action: permanently removes a booking / application. Throws on failure.
@@ -212,7 +239,10 @@ export async function deleteBooking(id) {
     notifyBookings();
     return;
   }
-  await deleteDoc(doc(collection(db, 'bookings'), id));
+  const batch = writeBatch(db);
+  batch.delete(doc(collection(db, 'bookings'), id));
+  batch.delete(busyRef(id));
+  await batch.commit();
 }
 
 export async function deleteApplication(id) {
@@ -221,7 +251,10 @@ export async function deleteApplication(id) {
     (appListeners.get(id) || []).forEach((cb) => cb(null));
     return;
   }
-  await deleteDoc(doc(collection(db, 'cleanerApplications'), id));
+  const batch = writeBatch(db);
+  batch.delete(doc(collection(db, 'cleanerApplications'), id));
+  batch.delete(availabilityRef(id));
+  await batch.commit();
 }
 
 // Lets the applicant's device follow the status you set. Returns an unsubscribe function.
@@ -262,6 +295,36 @@ export const listApplications = () =>
   useMemory
     ? Promise.resolve(listFromMemory('cleanerApplications'))
     : listFromFirestore('cleanerApplications', 'submittedAt');
+
+// What the booking screen needs to know which times are open: approved cleaners' working
+// hours and the times already taken. Contains no personal details.
+export async function getSupply() {
+  if (useMemory) {
+    return {
+      enforced: isDemo,
+      cleaners: Array.from(mem.cleanerApplications.values())
+        .filter((a) => a.status === 'approved')
+        .map((a) => ({ id: a.id, days: a.days || [], timeBlocks: a.timeBlocks || [] })),
+      busy: Array.from(mem.bookings.values()).map((b) => ({
+        id: b.id,
+        date: b.date,
+        time: b.time,
+        hours: parseSlot(b)?.hours || 2,
+        cleanerId: b.cleanerId || null,
+        active: isActiveJob(b),
+      })),
+    };
+  }
+  const [cleaners, busy] = await Promise.all([
+    getDocs(collection(db, 'cleanerAvailability')),
+    getDocs(collection(db, 'busySlots')),
+  ]);
+  return {
+    enforced: true,
+    cleaners: cleaners.docs.map((d) => ({ id: d.id, ...d.data() })),
+    busy: busy.docs.map((d) => ({ id: d.id, ...d.data() })),
+  };
+}
 
 // ---- Profile (home details) ----
 export async function getUserProfile(uid) {
@@ -337,13 +400,16 @@ export function markReferralUsed(uid, code) {
 // Account deletion: remove everything this user created. Throws on failure.
 export async function deleteMyData(uid) {
   if (useMemory || !uid) return;
-  for (const [name, field] of [
-    ['bookings', 'uid'],
-    ['cleanerApplications', 'uid'],
-    ['referralCodes', 'ownerUid'],
-  ]) {
-    const snap = await getDocs(query(collection(db, name), where(field, '==', uid)));
-    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  // The public records go first: the rules check ownership through the booking / application.
+  const mine = async (name, field) => getDocs(query(collection(db, name), where(field, '==', uid)));
+  for (const d of (await mine('bookings', 'uid')).docs) {
+    await deleteDoc(busyRef(d.id));
+    await deleteDoc(d.ref);
   }
+  for (const d of (await mine('cleanerApplications', 'uid')).docs) {
+    await deleteDoc(availabilityRef(d.id));
+    await deleteDoc(d.ref);
+  }
+  for (const d of (await mine('referralCodes', 'ownerUid')).docs) await deleteDoc(d.ref);
   await deleteDoc(doc(db, 'users', uid));
 }
