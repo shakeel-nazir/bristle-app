@@ -113,6 +113,7 @@ export default function ConfirmScreen({ route, navigation }) {
             <Row label="Date" value={date} />
             <Row label="Time" value={time} />
             <Row label="Address" value={address} />
+            {viewOnly && params.cleanerName ? <Row label="Cleaner" value={params.cleanerName.split(' ')[0]} /> : null}
             <View style={styles.divider} />
             <Row label="Subtotal" value={`$${subtotal.toFixed(2)}`} />
             {discountAmount > 0 && (

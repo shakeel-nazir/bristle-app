@@ -6,6 +6,7 @@ import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from '../components/GlassCard';
 import AnimatedPressable from '../components/AnimatedPressable';
 import ConfirmModal from '../components/ConfirmModal';
+import AssignCleanerModal from '../components/AssignCleanerModal';
 import {
   adminSignIn,
   adminSignOut,
@@ -15,6 +16,7 @@ import {
   setApplicationStatus,
   removeApplication,
   removeBooking,
+  setBookingCleaner,
   setBookingStatus,
   watchAdminUser,
 } from '../services/adminApi';
@@ -40,6 +42,7 @@ export default function AdminScreen({ navigation }) {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [assigning, setAssigning] = useState(null); // booking currently being matched
   const [toDelete, setToDelete] = useState(null); // { kind: 'booking' | 'application', id, label }
 
   useEffect(() => watchAdminUser(setUser), []);
@@ -79,6 +82,20 @@ export default function AdminScreen({ navigation }) {
       setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     } catch (e) {
       setLoadError("Couldn't update that booking. Check your admin rules and try again.");
+    }
+  };
+
+  const assign = async (cleaner) => {
+    const booking = assigning;
+    setAssigning(null);
+    if (!booking) return;
+    setLoadError('');
+    try {
+      await setBookingCleaner(booking.id, cleaner);
+      const fields = { cleanerId: cleaner ? cleaner.id : null, cleanerName: cleaner ? cleaner.fullName || 'Cleaner' : null };
+      setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, ...fields } : b)));
+    } catch (e) {
+      setLoadError("Couldn't assign that cleaner. Check your admin rules and try again.");
     }
   };
 
@@ -202,10 +219,19 @@ export default function AdminScreen({ navigation }) {
 
             {tab === 'applications'
               ? applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} onDelete={() => setToDelete({ kind: 'application', id: a.id, label: a.fullName || 'this applicant' })} />)
-              : items.map((b) => <BookingCard key={b.id} b={b} onChange={changeBookingStatus} onDelete={() => setToDelete({ kind: 'booking', id: b.id, label: `${b.service?.name || 'this booking'} on ${b.date || ''}` })} />)}
+              : items.map((b) => <BookingCard key={b.id} b={b} onChange={changeBookingStatus} onAssign={() => setAssigning(b)} onDelete={() => setToDelete({ kind: 'booking', id: b.id, label: `${b.service?.name || 'this booking'} on ${b.date || ''}` })} />)}
           </>
         )}
       </ScrollView>
+
+      <AssignCleanerModal
+        visible={!!assigning}
+        booking={assigning ? bookings.find((b) => b.id === assigning.id) || assigning : null}
+        cleaners={applications.filter((a) => a.status === 'approved')}
+        bookings={bookings}
+        onClose={() => setAssigning(null)}
+        onAssign={assign}
+      />
 
       <ConfirmModal
         visible={!!toDelete}
@@ -243,7 +269,7 @@ function Line({ label, value }) {
   );
 }
 
-function BookingCard({ b, onChange, onDelete }) {
+function BookingCard({ b, onChange, onAssign, onDelete }) {
   const scheduled = b.status === 'active' || !b.status;
   const enRoute = b.status === 'on_the_way';
   return (
@@ -257,6 +283,7 @@ function BookingCard({ b, onChange, onDelete }) {
         <Line label="Address" value={b.address} />
         <Line label="Home" value={describeHome(b.home)} />
         <Line label="Pet notes" value={b.home?.petNotes} />
+        <Line label="Cleaner" value={b.cleanerName || (b.status === 'active' || b.status === 'on_the_way' || !b.status ? 'Not assigned' : '')} />
         <Line label="Tasks" value={b.service?.tasks?.map((t) => t.label).join(', ')} />
         <Line label="Total" value={money(b.total)} />
         <Line label="Deposit" value={money(b.deposit)} />
@@ -274,6 +301,11 @@ function BookingCard({ b, onChange, onDelete }) {
               onPress={() => onChange(b.id, 'completed')}
             >
               <Text style={enRoute ? styles.advanceText : styles.secondaryText}>Mark completed</Text>
+            </AnimatedPressable>
+          ) : null}
+          {scheduled || enRoute ? (
+            <AnimatedPressable style={styles.secondaryButton} onPress={onAssign}>
+              <Text style={styles.secondaryText}>{b.cleanerId ? 'Change cleaner' : 'Assign cleaner'}</Text>
             </AnimatedPressable>
           ) : null}
           <AnimatedPressable style={styles.deleteButton} onPress={onDelete}>
@@ -358,7 +390,7 @@ const styles = StyleSheet.create({
   pillCancelled: { backgroundColor: 'rgba(163,45,45,0.12)' },
   pillProgress: { backgroundColor: 'rgba(232,115,74,0.15)' },
   pillTextProgress: { color: colors.accent },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
   advanceButton: {
     backgroundColor: colors.accent,
     borderRadius: radius.md,

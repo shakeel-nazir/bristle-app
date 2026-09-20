@@ -161,6 +161,11 @@ export default function HomeScreen({ navigation }) {
                     <Text style={styles.upcomingSubtitle}>
                       {booking.date} · {booking.time}
                     </Text>
+                    {booking.cleanerName ? (
+                      <Text style={styles.upcomingSubtitle}>
+                        Your cleaner: {booking.cleanerName.split(' ')[0]}
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
                 {booking.status === 'on_the_way' ? (

@@ -47,8 +47,9 @@ if (isDemo) {
   ].forEach((b) => mem.bookings.set(b.id, b));
   [
     { id: 'a1', fullName: 'Jamie Rivera', email: 'jamie@example.com', phone: '(613) 555-0100', experience: '3–5 years', days: ['Mon', 'Tue', 'Thu'], timeBlocks: ['Morning'], about: 'Certified in green cleaning products.', status: 'under_review', createdMs: ago(2) },
-    { id: 'a2', fullName: 'Priya Shah', email: 'priya@example.com', phone: '(613) 555-0142', experience: '5+ years', days: ['Wed', 'Fri', 'Sat'], timeBlocks: ['Morning', 'Afternoon'], status: 'interview', createdMs: ago(30) },
+    { id: 'a2', fullName: 'Priya Shah', email: 'priya@example.com', phone: '(613) 555-0142', experience: '5+ years', days: ['Wed', 'Fri', 'Sat'], timeBlocks: ['Morning', 'Afternoon'], status: 'approved', createdMs: ago(30) },
     { id: 'a3', fullName: 'Marcus Lee', email: 'marcus@example.com', phone: '(613) 555-0177', experience: 'New to cleaning', days: ['Sat', 'Sun'], timeBlocks: ['Afternoon'], status: 'approved', createdMs: ago(90) },
+    { id: 'a4', fullName: 'Dana Okafor', email: 'dana@example.com', phone: '(613) 555-0190', experience: '1–3 years', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], timeBlocks: ['Morning', 'Afternoon'], status: 'interview', createdMs: ago(60) },
   ].forEach((a) => mem.cleanerApplications.set(a.id, a));
 }
 
@@ -191,6 +192,16 @@ export async function updateApplicationStatus(id, status) {
     status,
     updatedAt: serverTimestamp(),
   });
+}
+
+// Admin action: give a booking a cleaner (an approved applicant), or pass null to unassign.
+export async function assignBookingCleaner(id, cleaner) {
+  const fields = { cleanerId: cleaner ? cleaner.id : null, cleanerName: cleaner ? cleaner.fullName || 'Cleaner' : null };
+  if (useMemory) {
+    memPatch('bookings', id, fields);
+    return;
+  }
+  await updateDoc(doc(collection(db, 'bookings'), id), fields);
 }
 
 // Admin action: permanently removes a booking / application. Throws on failure.
