@@ -16,6 +16,7 @@ import BecomeCleanerScreen from './src/screens/BecomeCleanerScreen';
 import CleanerApplicationSuccessScreen from './src/screens/CleanerApplicationSuccessScreen';
 import ReferScreen from './src/screens/ReferScreen';
 import RedeemCodeScreen from './src/screens/RedeemCodeScreen';
+import AdminScreen from './src/screens/AdminScreen';
 import { BookingProvider } from './src/context/BookingContext';
 import { ApplicationProvider } from './src/context/ApplicationContext';
 
@@ -59,6 +60,7 @@ export default function App() {
               <Stack.Screen name="CleanerApplicationSuccess" component={CleanerApplicationSuccessScreen} />
               <Stack.Screen name="Refer" component={ReferScreen} />
               <Stack.Screen name="RedeemCode" component={RedeemCodeScreen} />
+              <Stack.Screen name="Admin" component={AdminScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </ApplicationProvider>

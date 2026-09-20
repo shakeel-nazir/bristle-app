@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -13,10 +14,12 @@ const firebaseConfig = {
 export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 
 let db = null;
+let auth = null;
 
 if (isFirebaseConfigured) {
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   db = getFirestore(app);
+  auth = getAuth(app);
 } else if (__DEV__) {
   console.warn(
     '[firebase] Missing EXPO_PUBLIC_FIREBASE_* environment variables — bookings and ' +
@@ -24,4 +27,4 @@ if (isFirebaseConfigured) {
   );
 }
 
-export { db };
+export { db, auth };

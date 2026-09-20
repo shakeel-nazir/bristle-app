@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Animated, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
@@ -39,6 +39,12 @@ export default function HomeScreen({ navigation }) {
   const [cancelAppVisible, setCancelAppVisible] = useState(false);
   const fadeIn = useRef(new Animated.Value(0)).current;
   const slideIn = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.hash === '#admin') {
+      navigation.navigate('Admin');
+    }
+  }, [navigation]);
 
   useEffect(() => {
     Animated.parallel([
@@ -112,7 +118,9 @@ export default function HomeScreen({ navigation }) {
 
       <Animated.View style={{ opacity: fadeIn, transform: [{ translateY: slideIn }] }}>
         <View style={styles.header}>
-          <Text style={styles.brand}>BRISTLE</Text>
+          <Pressable onLongPress={() => navigation.navigate('Admin')} delayLongPress={800}>
+            <Text style={styles.brand}>BRISTLE</Text>
+          </Pressable>
           <Text style={styles.tagline}>You decide what gets cleaned</Text>
 
           <Text style={styles.greeting}>
