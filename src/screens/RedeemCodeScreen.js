@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -14,9 +14,13 @@ export default function RedeemCodeScreen({ navigation }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [applied, setApplied] = useState(false);
+  const [checking, setChecking] = useState(false);
 
-  const handleApply = () => {
-    const result = applyDiscountCode(code);
+  const handleApply = async () => {
+    if (checking) return;
+    setChecking(true);
+    const result = await applyDiscountCode(code);
+    setChecking(false);
     if (!result.success) {
       setError(result.message);
       return;
@@ -80,7 +84,7 @@ export default function RedeemCodeScreen({ navigation }) {
               <View style={styles.inputInner}>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. JAMIE25"
+                  placeholder="e.g. K7M2QX"
                   placeholderTextColor={colors.textSecondary}
                   value={code}
                   onChangeText={(text) => {
@@ -99,8 +103,12 @@ export default function RedeemCodeScreen({ navigation }) {
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <AnimatedPressable style={styles.applyButton} onPress={handleApply}>
-              <Text style={styles.applyButtonText}>Apply code</Text>
+            <AnimatedPressable style={styles.applyButton} onPress={handleApply} disabled={checking}>
+              {checking ? (
+                <ActivityIndicator color={colors.accentText} />
+              ) : (
+                <Text style={styles.applyButtonText}>Apply code</Text>
+              )}
             </AnimatedPressable>
           </>
         )}

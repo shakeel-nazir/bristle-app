@@ -1,14 +1,21 @@
 import React, { createContext, useContext, useState } from 'react';
 import { REFERRAL_DISCOUNT_PERCENT } from '../utils/referral';
 import { useAuth } from './AuthContext';
-import { saveBookingRemote, markBookingCancelledRemote } from '../services/dataStore';
+import {
+  hasUsedReferral,
+  lookupReferralCode,
+  markBookingCancelledRemote,
+  markReferralUsed,
+  saveBookingRemote,
+} from '../services/dataStore';
 
 const BookingContext = createContext(null);
 
 export const MAX_BOOKINGS = 2;
 
 export function BookingProvider({ children }) {
-  const { referralCode } = useAuth();
+  const { user } = useAuth();
+  const uid = user?.uid || 'local';
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [discount, setDiscount] = useState(null);
 
@@ -29,18 +36,34 @@ export function BookingProvider({ children }) {
     markBookingCancelledRemote(id);
   };
 
-  const applyDiscountCode = (rawCode) => {
-    const code = rawCode.trim().toUpperCase();
+  // Checks the code really exists (someone's referral code), isn't your own, and that you
+  // haven't already used a referral code before.
+  const applyDiscountCode = async (rawCode) => {
+    const code = rawCode.toUpperCase().replace(/[\s-]/g, '');
     if (!code) return { success: false, message: 'Enter a code' };
-    if (code === referralCode) {
-      return { success: false, message: "You can't redeem your own referral code" };
+    try {
+      const found = await lookupReferralCode(code);
+      if (!found) return { success: false, message: "That code isn't valid. Check it and try again." };
+      if (found.ownerUid === uid) {
+        return { success: false, message: "You can't redeem your own referral code." };
+      }
+      if (await hasUsedReferral(uid)) {
+        return { success: false, message: "You've already used a referral code." };
+      }
+    } catch (e) {
+      return { success: false, message: "Couldn't check that code. Please try again." };
     }
-    if (code.length < 4) return { success: false, message: "That code doesn't look right" };
     setDiscount({ code, percent: REFERRAL_DISCOUNT_PERCENT });
     return { success: true };
   };
 
   const clearDiscount = () => setDiscount(null);
+
+  // The discount was used on a paid booking, so it can't be used again.
+  const consumeDiscount = () => {
+    if (discount) markReferralUsed(uid, discount.code);
+    setDiscount(null);
+  };
 
   const canBookMore = upcomingBookings.length < MAX_BOOKINGS;
 
@@ -54,6 +77,7 @@ export function BookingProvider({ children }) {
         discount,
         applyDiscountCode,
         clearDiscount,
+        consumeDiscount,
       }}
     >
       {children}

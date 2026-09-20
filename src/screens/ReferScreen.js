@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Share } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Share, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -8,18 +8,38 @@ import GlassCard from '../components/GlassCard';
 import AnimatedPressable from '../components/AnimatedPressable';
 import { REFERRAL_DISCOUNT_PERCENT } from '../utils/referral';
 import { useAuth } from '../context/AuthContext';
+import { getOrCreateReferralCode } from '../services/dataStore';
 
 export default function ReferScreen({ navigation }) {
-  const { referralCode: code } = useAuth();
+  const { user, isGuest } = useAuth();
+  const [code, setCode] = useState(null);
+  const [loadError, setLoadError] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Guests can redeem codes but don't get their own (it stops people farming codes with throwaway accounts).
+  const canHaveCode = !isGuest;
+
+  useEffect(() => {
+    if (!canHaveCode) return undefined;
+    let active = true;
+    setLoadError(false);
+    getOrCreateReferralCode(user?.uid || 'local')
+      .then((c) => active && setCode(c))
+      .catch(() => active && setLoadError(true));
+    return () => {
+      active = false;
+    };
+  }, [canHaveCode, user?.uid]);
+
   const handleCopy = async () => {
+    if (!code) return;
     await Clipboard.setStringAsync(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
 
   const handleShare = async () => {
+    if (!code) return;
     try {
       await Share.share({
         message: `Book your first clean with Bristle and get ${REFERRAL_DISCOUNT_PERCENT}% off using my code ${code}! 🧽`,
@@ -56,8 +76,16 @@ export default function ReferScreen({ navigation }) {
               <Ionicons name="gift-outline" size={22} color={colors.accent} />
             </View>
             <Text style={styles.codeLabel}>Your referral code</Text>
-            <Text style={styles.code}>{code}</Text>
-            <View style={styles.codeButtonRow}>
+            {!canHaveCode ? (
+              <Text style={styles.codeNote}>Create an account to get your own referral code.</Text>
+            ) : loadError ? (
+              <Text style={styles.codeNote}>Couldn't load your code. Check your connection and reopen this page.</Text>
+            ) : !code ? (
+              <ActivityIndicator color={colors.accent} style={{ marginBottom: spacing.md }} />
+            ) : (
+              <Text style={styles.code}>{code}</Text>
+            )}
+            {code ? <View style={styles.codeButtonRow}>
               <AnimatedPressable style={styles.copyButton} onPress={handleCopy}>
                 <Ionicons
                   name={copied ? 'checkmark' : 'copy-outline'}
@@ -71,7 +99,7 @@ export default function ReferScreen({ navigation }) {
                 <Ionicons name="share-outline" size={16} color={colors.accentText} style={{ marginRight: 6 }} />
                 <Text style={styles.shareButtonText}>Share code</Text>
               </AnimatedPressable>
-            </View>
+            </View> : null}
           </View>
         </GlassCard>
 
@@ -147,6 +175,13 @@ const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: 2,
     marginBottom: spacing.md,
+  },
+  codeNote: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    lineHeight: 18,
   },
   codeButtonRow: {
     flexDirection: 'row',

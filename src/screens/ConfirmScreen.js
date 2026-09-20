@@ -11,7 +11,7 @@ import { getPriceBreakdown, HST_RATE } from '../utils/pricing';
 
 export default function ConfirmScreen({ route, navigation }) {
   const { id, service, date, time, rawDate, address, viewOnly } = route.params;
-  const { addBooking, cancelBooking, canBookMore, discount, clearDiscount } = useBooking();
+  const { addBooking, cancelBooking, canBookMore, discount, consumeDiscount } = useBooking();
   const discountPercent = !viewOnly && discount ? discount.percent : 0;
   const freshBreakdown = getPriceBreakdown(service.price, discountPercent);
 
@@ -42,7 +42,7 @@ export default function ConfirmScreen({ route, navigation }) {
       deposit,
       balance,
     });
-    if (discountPercent > 0) clearDiscount();
+    if (discountPercent > 0) consumeDiscount();
     navigation.navigate('Success', { service, date, time, rawDate, address, deposit, balance });
   };
 

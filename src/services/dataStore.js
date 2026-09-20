@@ -2,7 +2,9 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -11,6 +13,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
+import * as Crypto from 'expo-crypto';
 import { auth, db, isFirebaseConfigured } from './firebase';
 
 // Demo mode is dev-only (never true in a production build): open the dev site with #demo in the
@@ -23,7 +26,13 @@ export const dataAvailable = isDemo || isFirebaseConfigured;
 
 const currentUid = () => auth?.currentUser?.uid || null;
 
-const mem = { bookings: new Map(), cleanerApplications: new Map() };
+const mem = {
+  bookings: new Map(),
+  cleanerApplications: new Map(),
+  // Demo/offline seed so redeeming can be tried without a second account.
+  referralCodes: new Map([['DEMO25', { ownerUid: 'demo-owner' }]]),
+  users: new Map(),
+};
 const appListeners = new Map();
 
 function memPatch(name, id, patch) {
@@ -153,11 +162,71 @@ export const listApplications = () =>
     ? Promise.resolve(listFromMemory('cleanerApplications'))
     : listFromFirestore('cleanerApplications', 'submittedAt');
 
+// ---- Referral codes ----
+// Unambiguous characters only (no 0/O, 1/I), so codes are easy to read out and type.
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function makeCode() {
+  return Array.from(Crypto.getRandomBytes(6), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+}
+
+// Returns this person's referral code, creating a random one the first time.
+export async function getOrCreateReferralCode(uid) {
+  if (useMemory) {
+    for (const [code, v] of mem.referralCodes) if (v.ownerUid === uid) return code;
+    let code = makeCode();
+    while (mem.referralCodes.has(code)) code = makeCode();
+    mem.referralCodes.set(code, { ownerUid: uid });
+    return code;
+  }
+  const existing = await getDocs(
+    query(collection(db, 'referralCodes'), where('ownerUid', '==', uid), limit(1)),
+  );
+  if (!existing.empty) return existing.docs[0].id;
+  // A clash with someone else's code is rejected by the rules (no overwrites), so just retry.
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const code = makeCode();
+    try {
+      await setDoc(doc(db, 'referralCodes', code), { ownerUid: uid, createdAt: serverTimestamp() });
+      return code;
+    } catch (e) {
+      if (attempt === 5) throw e;
+    }
+  }
+  return null;
+}
+
+// Returns { ownerUid } if the code exists, otherwise null. Throws if it can't be checked.
+export async function lookupReferralCode(code) {
+  if (useMemory) return mem.referralCodes.get(code) || null;
+  const snap = await getDoc(doc(db, 'referralCodes', code));
+  return snap.exists() ? { ownerUid: snap.data().ownerUid } : null;
+}
+
+export async function hasUsedReferral(uid) {
+  if (useMemory) return mem.users.get(uid)?.referralUsed || null;
+  const snap = await getDoc(doc(db, 'users', uid));
+  return snap.exists() ? snap.data().referralUsed || null : null;
+}
+
+export function markReferralUsed(uid, code) {
+  if (useMemory) {
+    mem.users.set(uid, { ...(mem.users.get(uid) || {}), referralUsed: code });
+    return Promise.resolve();
+  }
+  return safeWrite('markReferralUsed', () => setDoc(doc(db, 'users', uid), { referralUsed: code }, { merge: true }));
+}
+
 // Account deletion: remove everything this user created. Throws on failure.
 export async function deleteMyData(uid) {
   if (useMemory || !uid) return;
-  for (const name of ['bookings', 'cleanerApplications']) {
-    const snap = await getDocs(query(collection(db, name), where('uid', '==', uid)));
+  for (const [name, field] of [
+    ['bookings', 'uid'],
+    ['cleanerApplications', 'uid'],
+    ['referralCodes', 'ownerUid'],
+  ]) {
+    const snap = await getDocs(query(collection(db, name), where(field, '==', uid)));
     await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
   }
+  await deleteDoc(doc(db, 'users', uid));
 }

@@ -81,18 +81,11 @@ export function AuthProvider({ children }) {
     const nameSource = user?.displayName || user?.email?.split('@')[0] || '';
     const firstName = nameSource.split(/[\s._-]/)[0];
     const displayFirstName = !authRequired ? 'Andrew' : isGuest || !firstName ? '' : firstName;
-    const referralCode = !authRequired
-      ? 'ANDREW25'
-      : firstName && !isGuest
-        ? `${firstName.toUpperCase().slice(0, 10)}25`
-        : `GUEST${(user?.uid || '0000').slice(0, 4).toUpperCase()}25`;
-
     return {
       user,
       loading,
       isGuest,
       displayFirstName,
-      referralCode,
       email: user?.email || '',
 
       signInEmail: (email, password) =>
