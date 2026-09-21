@@ -56,6 +56,7 @@ export default function AdminScreen({ navigation }) {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [appsReady, setAppsReady] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null); // booking being edited
   const [messaging, setMessaging] = useState(null); // booking whose customer we're messaging
@@ -100,7 +101,21 @@ export default function AdminScreen({ navigation }) {
     .join('|');
   useEffect(() => {
     if (!user || !appsReady) return;
-    syncAvailability(applications).catch(() => {});
+    const approvedCount = applications.filter((a) => a.status === 'approved').length;
+    setSyncStatus(null);
+    syncAvailability(applications)
+      .then((changed) =>
+        setSyncStatus({
+          ok: true,
+          text:
+            approvedCount === 0
+              ? 'No approved cleaners yet, so no booking times are open. Approve a cleaner to open their days.'
+              : `${approvedCount} approved cleaner${approvedCount === 1 ? '' : 's'} bookable${changed ? ` (published ${changed} update${changed === 1 ? '' : 's'})` : ''}.`,
+        }),
+      )
+      .catch((e) =>
+        setSyncStatus({ ok: false, text: `Couldn't publish cleaner hours (${e?.code || e?.message || 'unknown error'}). Check the Firestore rules for cleanerAvailability.` }),
+      );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, appsReady, availabilitySig]);
 
@@ -365,6 +380,9 @@ export default function AdminScreen({ navigation }) {
             {notice ? <Text style={styles.notice}>{notice}</Text> : null}
             {loading ? <ActivityIndicator color={colors.accent} /> : null}
             {loadError ? <Text style={styles.error}>{loadError}</Text> : null}
+            {syncStatus ? (
+              <Text style={syncStatus.ok ? styles.notice : styles.error}>{syncStatus.text}</Text>
+            ) : null}
             {!loading && !loadError && items.length === 0 ? (
               <Text style={styles.muted}>Nothing here yet.</Text>
             ) : null}
