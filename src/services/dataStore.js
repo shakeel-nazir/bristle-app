@@ -248,6 +248,21 @@ export async function assignBookingCleaner(id, cleaner) {
   await batch.commit();
 }
 
+// Admin action: change an upcoming booking's date, time, tasks, or add a note. Throws on failure.
+// If a cleaner had to be unassigned the fields include cleanerId/cleanerName: null.
+export async function updateBookingDetails(id, fields) {
+  if (useMemory) {
+    memPatch('bookings', id, fields);
+    return;
+  }
+  const batch = writeBatch(db);
+  batch.update(doc(collection(db, 'bookings'), id), { ...fields, editedAt: serverTimestamp() });
+  const busy = { date: fields.date, time: fields.time };
+  if ('cleanerId' in fields) busy.cleanerId = fields.cleanerId;
+  batch.set(busyRef(id), busy, { merge: true }); // keeps other customers' available times correct
+  await batch.commit();
+}
+
 // Admin action: permanently removes a booking / application. Throws on failure.
 export async function deleteBooking(id) {
   if (useMemory) {
@@ -446,6 +461,30 @@ function mapTicket(d) {
 export async function createTicketRemote({ uid, category, message, userName, userEmail, bookingLabel }) {
   const first = { from: 'customer', text: message, ts: Date.now() };
   const base = { uid, category, userName, userEmail, bookingLabel: bookingLabel || '', status: 'open', customerSeen: true, messages: [first] };
+  if (useMemory) {
+    const id = `t${Date.now()}`;
+    mem.tickets.set(id, { ...base, id, createdMs: Date.now(), updatedMs: Date.now() });
+    notifyTickets();
+    return id;
+  }
+  const ref = doc(collection(db, 'tickets'));
+  await setDoc(ref, { ...base, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  return ref.id;
+}
+
+// Admin starts a conversation (e.g. "your cleaner is running late") with no ticket from the customer.
+// It appears as an unread message on their Home screen and they can reply.
+export async function createAdminMessage({ uid, text, bookingLabel }) {
+  const base = {
+    uid,
+    category: 'Message from Bristle',
+    userName: '',
+    userEmail: '',
+    bookingLabel: bookingLabel || '',
+    status: 'answered',
+    customerSeen: false,
+    messages: [{ from: 'admin', text, ts: Date.now() }],
+  };
   if (useMemory) {
     const id = `t${Date.now()}`;
     mem.tickets.set(id, { ...base, id, createdMs: Date.now(), updatedMs: Date.now() });

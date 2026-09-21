@@ -9,18 +9,10 @@ import GlassCard from '../components/GlassCard';
 import AnimatedPressable from '../components/AnimatedPressable';
 import { getSupply } from '../services/dataStore';
 import { openTimesFor } from '../utils/availability';
+import { TIME_SLOTS, formatBookingDate } from '../utils/dates';
 
-const timeSlots = ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'];
-
-const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_SHORT = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
-function formatDate(date) {
-  return `${WEEKDAY_SHORT[date.getDay()]}, ${MONTH_SHORT[date.getMonth()]} ${date.getDate()}`;
-}
-
+const timeSlots = TIME_SLOTS;
+const formatDate = formatBookingDate;
 
 export default function BookingScreen({ route, navigation }) {
   const { service } = route.params;

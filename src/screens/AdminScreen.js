@@ -7,10 +7,14 @@ import GlassCard from '../components/GlassCard';
 import AnimatedPressable from '../components/AnimatedPressable';
 import ConfirmModal from '../components/ConfirmModal';
 import AssignCleanerModal from '../components/AssignCleanerModal';
+import EditBookingModal from '../components/EditBookingModal';
+import MessageCustomerModal from '../components/MessageCustomerModal';
 import {
   adminSignIn,
   adminSignOut,
   answerTicket,
+  editBooking,
+  messageCustomer,
   changeTicketStatus,
   fetchApplications,
   fetchBookings,
@@ -51,6 +55,9 @@ export default function AdminScreen({ navigation }) {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [editing, setEditing] = useState(null); // booking being edited
+  const [messaging, setMessaging] = useState(null); // booking whose customer we're messaging
+  const [notice, setNotice] = useState('');
   const [assigning, setAssigning] = useState(null); // booking currently being matched
   const [toDelete, setToDelete] = useState(null); // { kind: 'booking' | 'application', id, label }
 
@@ -131,6 +138,41 @@ export default function AdminScreen({ navigation }) {
       setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
     } catch (e) {
       setLoadError("Couldn't update that ticket. Check your admin rules and try again.");
+    }
+  };
+
+  const sendCustomerMessage = async (text) => {
+    const booking = messaging;
+    if (!booking) return false;
+    try {
+      await messageCustomer({
+        uid: booking.uid,
+        text,
+        bookingLabel: `${booking.service?.name || 'Booking'} · ${booking.date}`,
+      });
+      setMessaging(null);
+      setNotice('Message sent. The customer will see it on their Home screen.');
+      setTimeout(() => setNotice(''), 4000);
+      setTickets(await fetchTickets());
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // Returns true when saved, so the editor knows whether to close.
+  const saveBookingEdit = async (fields) => {
+    const booking = editing;
+    if (!booking) return false;
+    setLoadError('');
+    try {
+      await editBooking(booking.id, fields);
+      setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, ...fields } : b)));
+      setEditing(null);
+      return true;
+    } catch (e) {
+      setLoadError("Couldn't save those changes. Check your admin rules and try again.");
+      return false;
     }
   };
 
@@ -302,6 +344,7 @@ export default function AdminScreen({ navigation }) {
               ))}
             </View>
 
+            {notice ? <Text style={styles.notice}>{notice}</Text> : null}
             {loading ? <ActivityIndicator color={colors.accent} /> : null}
             {loadError ? <Text style={styles.error}>{loadError}</Text> : null}
             {!loading && !loadError && items.length === 0 ? (
@@ -322,10 +365,26 @@ export default function AdminScreen({ navigation }) {
               ? cleaners.map((c) => <CleanerCard key={c.id} c={c} bookings={bookings} />)
               : tab === 'applications'
               ? applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} onDelete={() => setToDelete({ kind: 'application', id: a.id, label: a.fullName || 'this applicant' })} />)
-              : items.map((b) => <BookingCard key={b.id} b={b} onChange={changeBookingStatus} onAssign={() => setAssigning(b)} onDelete={() => setToDelete({ kind: 'booking', id: b.id, label: `${b.service?.name || 'this booking'} on ${b.date || ''}` })} />)}
+              : items.map((b) => <BookingCard key={b.id} b={b} onChange={changeBookingStatus} onAssign={() => setAssigning(b)} onEdit={() => setEditing(b)} onMessage={() => setMessaging(b)} onDelete={() => setToDelete({ kind: 'booking', id: b.id, label: `${b.service?.name || 'this booking'} on ${b.date || ''}` })} />)}
           </>
         )}
       </ScrollView>
+
+      <MessageCustomerModal
+        visible={!!messaging}
+        booking={messaging}
+        onClose={() => setMessaging(null)}
+        onSend={sendCustomerMessage}
+      />
+
+      <EditBookingModal
+        visible={!!editing}
+        booking={editing ? bookings.find((b) => b.id === editing.id) || editing : null}
+        cleaners={applications.filter((a) => a.status === 'approved')}
+        bookings={bookings}
+        onClose={() => setEditing(null)}
+        onSave={saveBookingEdit}
+      />
 
       <AssignCleanerModal
         visible={!!assigning}
@@ -372,7 +431,7 @@ function Line({ label, value }) {
   );
 }
 
-function BookingCard({ b, onChange, onAssign, onDelete }) {
+function BookingCard({ b, onChange, onAssign, onEdit, onMessage, onDelete }) {
   const scheduled = b.status === 'active' || !b.status;
   const enRoute = b.status === 'on_the_way';
   return (
@@ -387,6 +446,7 @@ function BookingCard({ b, onChange, onAssign, onDelete }) {
         <Line label="Home" value={describeHome(b.home)} />
         <Line label="Pet notes" value={b.home?.petNotes} />
         <Line label="Cleaner" value={b.cleanerName || (b.status === 'active' || b.status === 'on_the_way' || !b.status ? 'Not assigned' : '')} />
+        <Line label="Note to customer" value={b.adminNote} />
         <Line label="Tasks" value={b.service?.tasks?.map((t) => t.label).join(', ')} />
         <Line label="Total" value={money(b.total)} />
         <Line label="Deposit" value={money(b.deposit)} />
@@ -404,6 +464,16 @@ function BookingCard({ b, onChange, onAssign, onDelete }) {
               onPress={() => onChange(b.id, 'completed')}
             >
               <Text style={enRoute ? styles.advanceText : styles.secondaryText}>Mark completed</Text>
+            </AnimatedPressable>
+          ) : null}
+          {(scheduled || enRoute) && b.uid ? (
+            <AnimatedPressable style={styles.secondaryButton} onPress={onMessage}>
+              <Text style={styles.secondaryText}>Message</Text>
+            </AnimatedPressable>
+          ) : null}
+          {scheduled || enRoute ? (
+            <AnimatedPressable style={styles.secondaryButton} onPress={onEdit}>
+              <Text style={styles.secondaryText}>Edit</Text>
             </AnimatedPressable>
           ) : null}
           {scheduled || enRoute ? (
@@ -732,6 +802,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   error: { color: '#A32D2D', fontSize: 13, marginTop: spacing.sm },
+  notice: { color: '#3F8557', fontSize: 13, fontWeight: '600', marginBottom: spacing.sm },
   button: {
     backgroundColor: colors.accent,
     borderRadius: radius.md,

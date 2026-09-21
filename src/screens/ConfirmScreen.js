@@ -87,6 +87,11 @@ export default function ConfirmScreen({ route, navigation }) {
         <Text style={styles.title}>
           {!viewOnly ? 'Confirm booking' : canModify || status === 'on_the_way' ? 'Your booking' : 'Past job'}
         </Text>
+        {viewOnly && params.adminNote ? (
+          <View style={[styles.statusBanner, styles.statusNeutral]}>
+            <Text style={styles.statusBannerText}>Note from Bristle: {params.adminNote}</Text>
+          </View>
+        ) : null}
         {viewOnly && status && status !== 'active' ? (
           <View
             style={[

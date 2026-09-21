@@ -161,7 +161,7 @@ export default function HomeScreen({ navigation }) {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.supportNoticeTitle}>
-                  {unreadCount > 1 ? `${unreadCount} new replies from support` : 'New reply from support'}
+                  {unreadCount > 1 ? `${unreadCount} new messages from Bristle` : 'New message from Bristle'}
                 </Text>
                 <Text style={styles.supportNoticeText} numberOfLines={1}>
                   {unreadTicket.messages[unreadTicket.messages.length - 1].text}
@@ -187,6 +187,9 @@ export default function HomeScreen({ navigation }) {
                     <Text style={styles.upcomingSubtitle}>
                       {booking.date} · {booking.time}
                     </Text>
+                    {booking.adminNote ? (
+                      <Text style={styles.upcomingNote}>Note from Bristle: {booking.adminNote}</Text>
+                    ) : null}
                     {booking.cleanerName ? (
                       <Text style={styles.upcomingSubtitle}>
                         Your cleaner: {booking.cleanerName.split(' ')[0]}
@@ -417,6 +420,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   onTheWayText: { color: colors.accentText, fontSize: 13, fontWeight: '700' },
+  upcomingNote: { fontSize: 12, fontWeight: '600', color: colors.accent, marginTop: 2 },
   upcomingFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',

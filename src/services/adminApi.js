@@ -2,6 +2,7 @@ import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebas
 import { auth } from './firebase';
 import {
   assignBookingCleaner,
+  createAdminMessage,
   dataAvailable,
   deleteApplication,
   deleteBooking,
@@ -13,6 +14,7 @@ import {
   listApplications,
   listBookings,
   updateApplicationStatus,
+  updateBookingDetails,
   updateBookingStatus,
 } from './dataStore';
 
@@ -26,6 +28,8 @@ export const fetchTickets = listTickets;
 export const answerTicket = (id, text) => replyTicket(id, 'admin', text);
 export const changeTicketStatus = setTicketStatus;
 export const removeTicket = deleteTicket;
+export const messageCustomer = createAdminMessage;
+export const editBooking = updateBookingDetails;
 export const removeBooking = deleteBooking;
 export const removeApplication = deleteApplication;
 
