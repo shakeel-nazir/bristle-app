@@ -28,7 +28,9 @@ export default function SupportScreen({ navigation }) {
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
 
-  const recent = [...allBookings].sort((a, b) => b.createdMs - a.createdMs).slice(0, 4);
+  const recent = allBookings
+    .filter((b) => b.status !== 'cancelled')
+    .sort((a, b) => b.createdMs - a.createdMs).slice(0, 4);
 
   const send = async () => {
     if (!category) return setError('Pick what this is about.');
@@ -98,7 +100,7 @@ export default function SupportScreen({ navigation }) {
                         onPress={() => setBookingId(bookingId === b.id ? null : b.id)}
                       >
                         <Text style={[styles.chipText, bookingId === b.id && styles.chipTextOn]}>
-                          {b.service?.name?.replace(' Clean', '')} · {b.date}
+                          {b.service?.name?.replace(' Clean', '')} · {b.date} · {b.time}
                         </Text>
                       </AnimatedPressable>
                     ))}
