@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { REFERRAL_DISCOUNT_PERCENT } from '../utils/referral';
+import { REFERRAL_DISCOUNT_PERCENT, PROMO_CODES } from '../utils/referral';
 import { useAuth } from './AuthContext';
 import {
   hasUsedReferral,
@@ -50,6 +50,10 @@ export function BookingProvider({ children }) {
   const applyDiscountCode = async (rawCode) => {
     const code = rawCode.toUpperCase().replace(/[\s-]/g, '');
     if (!code) return { success: false, message: 'Enter a code' };
+    if (PROMO_CODES[code]) {
+      setDiscount({ code, percent: PROMO_CODES[code], promo: true });
+      return { success: true };
+    }
     try {
       const found = await lookupReferralCode(code);
       if (!found) return { success: false, message: "That code isn't valid. Check it and try again." };
@@ -70,7 +74,8 @@ export function BookingProvider({ children }) {
 
   // The discount was used on a paid booking, so it can't be used again.
   const consumeDiscount = () => {
-    if (discount) markReferralUsed(uid, discount.code);
+    // Only referral codes are one-time; promo codes stay usable.
+    if (discount && !discount.promo) markReferralUsed(uid, discount.code);
     setDiscount(null);
   };
 
