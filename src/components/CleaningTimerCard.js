@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,22 +6,12 @@ import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from './GlassCard';
 import AnimatedPressable from './AnimatedPressable';
 import { timerState, formatClock, formatLeft } from '../utils/cleanTimer';
+import useNow from '../utils/useNow';
 
 const SIZE = 136;
 const STROKE = 12;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-
-// Re-renders every second so the clocks tick. Nothing is written anywhere; the time is worked out
-// from when the clean was started.
-function useNow() {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
 
 function PulsingDot() {
   const pulse = useRef(new Animated.Value(0)).current;

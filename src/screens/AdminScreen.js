@@ -9,6 +9,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import AssignCleanerModal from '../components/AssignCleanerModal';
 import EditBookingModal from '../components/EditBookingModal';
 import EditCleanerModal from '../components/EditCleanerModal';
+import AdminTimerPanel from '../components/AdminTimerPanel';
 import MessageCustomerModal from '../components/MessageCustomerModal';
 import {
   adminSignIn,
@@ -525,6 +526,7 @@ function BookingCard({ b, onChange, onAssign, onEdit, onMessage, onDelete }) {
           <Text style={styles.cardTitle}>{b.service?.name || 'Booking'}</Text>
           <StatusPill status={b.status} />
         </View>
+        {working ? <AdminTimerPanel booking={b} /> : null}
         <Line label="When" value={`${b.date || ''} · ${b.time || ''}`} />
         <Line label="Address" value={b.address} />
         <Line label="Home" value={describeHome(b.home)} />

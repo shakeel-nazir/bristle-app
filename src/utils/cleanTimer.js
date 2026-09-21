@@ -24,7 +24,8 @@ export function planTasks(booking) {
 export function timerState(booking, nowMs) {
   const plan = planTasks(booking);
   const totalMs = plan.reduce((sum, t) => sum + t.minutes * MIN, 0);
-  const elapsedMs = Math.max(0, nowMs - (booking.startedMs ?? nowMs));
+  const rawElapsedMs = Math.max(0, nowMs - (booking.startedMs ?? nowMs));
+  const elapsedMs = rawElapsedMs;
 
   let cursor = 0;
   let currentIndex = -1;
@@ -53,6 +54,7 @@ export function timerState(booking, nowMs) {
     currentIndex,
     totalMs,
     elapsedMs: Math.min(elapsedMs, totalMs),
+    overMs: Math.max(0, rawElapsedMs - totalMs), // how long past the booked time it has run
     remainingMs: Math.max(0, totalMs - elapsedMs),
     progress: totalMs ? Math.min(1, elapsedMs / totalMs) : 1,
     finished,
