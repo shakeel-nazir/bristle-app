@@ -571,3 +571,49 @@ export async function listTickets() {
   const snap = await getDocs(query(collection(db, 'tickets'), orderBy('updatedAt', 'desc')));
   return snap.docs.map(mapTicket);
 }
+
+// ---- Admin live feeds ----
+// Keep the admin panel current without a refresh button. Firestore pushes changes; the in-memory
+// demo backend has no push channel, so it is checked every couple of seconds instead.
+function watchList(name, orderField, fromMemory, mapDoc, callback, onError) {
+  if (useMemory) {
+    const tick = () => callback(fromMemory());
+    tick();
+    const timer = setInterval(tick, 2000);
+    return () => clearInterval(timer);
+  }
+  return onSnapshot(
+    query(collection(db, name), orderBy(orderField, 'desc')),
+    (snap) => callback(snap.docs.map(mapDoc)),
+    (e) => onError?.(e),
+  );
+}
+
+const mapTimed = (orderField) => (d) => {
+  const data = d.data();
+  const ts = data[orderField];
+  return { ...data, id: d.id, createdMs: ts?.toMillis ? ts.toMillis() : 0 };
+};
+
+export const watchBookings = (cb, onError) =>
+  watchList('bookings', 'createdAt', () => listFromMemory('bookings'), mapTimed('createdAt'), cb, onError);
+
+export const watchApplications = (cb, onError) =>
+  watchList(
+    'cleanerApplications',
+    'submittedAt',
+    () => listFromMemory('cleanerApplications'),
+    mapTimed('submittedAt'),
+    cb,
+    onError,
+  );
+
+export const watchTickets = (cb, onError) =>
+  watchList(
+    'tickets',
+    'updatedAt',
+    () => Array.from(mem.tickets.values()).sort((a, b) => b.updatedMs - a.updatedMs),
+    mapTicket,
+    cb,
+    onError,
+  );

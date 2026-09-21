@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,9 +16,9 @@ import {
   editBooking,
   messageCustomer,
   changeTicketStatus,
-  fetchApplications,
-  fetchBookings,
-  fetchTickets,
+  liveApplications,
+  liveBookings,
+  liveTickets,
   isFirebaseConfigured,
   setApplicationStatus,
   removeApplication,
@@ -63,24 +63,26 @@ export default function AdminScreen({ navigation }) {
 
   useEffect(() => watchAdminUser(setUser), []);
 
-  const load = useCallback(async () => {
+  // Live feeds: the lists update on their own whenever anything changes.
+  useEffect(() => {
+    if (!user) return undefined;
     setLoading(true);
     setLoadError('');
-    try {
-      const [b, a, t] = await Promise.all([fetchBookings(), fetchApplications(), fetchTickets()]);
-      setBookings(b);
-      setApplications(a);
-      setTickets(t);
-    } catch (e) {
-      setLoadError("Couldn't load data. This account may not have admin access.");
-    } finally {
+    const failed = () => {
       setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (user) load();
-  }, [user, load]);
+      setLoadError("Couldn't load data. This account may not have admin access.");
+    };
+    const arrived = (set) => (rows) => {
+      set(rows);
+      setLoading(false);
+    };
+    const stops = [
+      liveBookings(arrived(setBookings), failed),
+      liveApplications(arrived(setApplications), failed),
+      liveTickets(arrived(setTickets), failed),
+    ];
+    return () => stops.forEach((stop) => stop());
+  }, [user]);
 
   const changeStatus = async (id, status) => {
     setLoadError('');
@@ -153,7 +155,6 @@ export default function AdminScreen({ navigation }) {
       setMessaging(null);
       setNotice('Message sent. The customer will see it on their Home screen.');
       setTimeout(() => setNotice(''), 4000);
-      setTickets(await fetchTickets());
       return true;
     } catch (e) {
       return false;
@@ -261,9 +262,6 @@ export default function AdminScreen({ navigation }) {
           </GlassCard>
           {user ? (
             <View style={styles.headerActions}>
-              <AnimatedPressable onPress={load}>
-                <Text style={styles.link}>Refresh</Text>
-              </AnimatedPressable>
               <AnimatedPressable onPress={adminSignOut}>
                 <Text style={styles.linkDanger}>Sign out</Text>
               </AnimatedPressable>
