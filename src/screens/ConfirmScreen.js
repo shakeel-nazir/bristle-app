@@ -7,7 +7,7 @@ import { useBooking } from '../context/BookingContext';
 import GlassCard from '../components/GlassCard';
 import ConfirmModal from '../components/ConfirmModal';
 import AnimatedPressable from '../components/AnimatedPressable';
-import { getPriceBreakdown, HST_RATE } from '../utils/pricing';
+import { getPriceBreakdown, provinceOf } from '../utils/pricing';
 
 export default function ConfirmScreen({ route, navigation }) {
   const { addBooking, cancelBooking, canBookMore, discount, consumeDiscount, allBookings } = useBooking();
@@ -17,7 +17,7 @@ export default function ConfirmScreen({ route, navigation }) {
   const { id, service, date, time, rawDate, address, viewOnly, status } = params;
   const canModify = viewOnly && (!status || status === 'active');
   const discountPercent = !viewOnly && discount ? discount.percent : 0;
-  const freshBreakdown = getPriceBreakdown(service.price, discountPercent);
+  const freshBreakdown = getPriceBreakdown(service.price, discountPercent, provinceOf(address));
 
   // A booking already made keeps the exact numbers (and discount, if any) it was charged
   // at the time — recomputing from the current global discount would misreport what happened.
@@ -25,6 +25,10 @@ export default function ConfirmScreen({ route, navigation }) {
   const discountAmount = viewOnly ? params.discountAmount || 0 : freshBreakdown.discountAmount;
   const discountCodeUsed = viewOnly ? params.discountCode : discount?.code;
   const tax = viewOnly ? params.tax ?? 0 : freshBreakdown.tax;
+  // Bookings made before tax lines were saved only have the one total tax figure.
+  const taxLines = viewOnly
+    ? params.taxLines || [{ label: provinceOf(address) === 'QC' ? 'GST + QST' : 'HST (13%, Ontario)', amount: tax }]
+    : freshBreakdown.taxLines;
   const total = viewOnly ? params.total ?? 0 : freshBreakdown.total;
   const deposit = viewOnly ? params.deposit ?? 0 : freshBreakdown.deposit;
   const balance = viewOnly ? params.balance ?? 0 : freshBreakdown.balance;
@@ -42,6 +46,7 @@ export default function ConfirmScreen({ route, navigation }) {
       discountAmount,
       discountCode: discountPercent > 0 ? discountCodeUsed : null,
       tax,
+      taxLines,
       total,
       deposit,
       balance,
@@ -124,7 +129,9 @@ export default function ConfirmScreen({ route, navigation }) {
             {discountAmount > 0 && (
               <Row label={`Discount (${discountCodeUsed})`} value={`-$${discountAmount.toFixed(2)}`} discount />
             )}
-            <Row label={`HST (${Math.round(HST_RATE * 100)}%, Ontario)`} value={`$${tax.toFixed(2)}`} />
+            {taxLines.map((t) => (
+              <Row key={t.label} label={t.label} value={`$${t.amount.toFixed(2)}`} />
+            ))}
             <Row label="Total" value={`$${total.toFixed(2)}`} />
             <View style={styles.divider} />
             <Row label="Deposit due now (50%)" value={`$${deposit.toFixed(2)}`} bold />
