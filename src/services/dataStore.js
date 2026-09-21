@@ -297,6 +297,30 @@ export async function updateCleanerDetails(id, fields, { approved, bookingIds = 
   await batch.commit();
 }
 
+// Admin action: a cleaner is no longer working with us. They stop being bookable, and the jobs
+// they had coming up (`jobIds`) go back to "needs a cleaner". Their record and their name on past
+// jobs are kept, and they can be reinstated later. Throws on failure.
+export async function removeCleanerFromRoster(id, jobIds = []) {
+  const freed = { cleanerId: null, cleanerName: null, status: 'active', startedMs: null };
+  if (useMemory) {
+    memPatch('cleanerApplications', id, { status: 'removed' });
+    jobIds.forEach((b) => memPatch('bookings', b, freed));
+    return;
+  }
+  const batch = writeBatch(db);
+  batch.update(doc(collection(db, 'cleanerApplications'), id), {
+    status: 'removed',
+    removedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.delete(availabilityRef(id)); // no longer bookable
+  jobIds.forEach((b) => {
+    batch.update(doc(collection(db, 'bookings'), b), freed);
+    batch.set(busyRef(b), { cleanerId: null }, { merge: true });
+  });
+  await batch.commit();
+}
+
 // Admin action: permanently removes a booking / application. Throws on failure.
 export async function deleteBooking(id) {
   if (useMemory) {

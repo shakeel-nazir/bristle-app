@@ -12,6 +12,7 @@ export const STATUS_LABELS = {
   background_check: 'Background Check',
   approved: 'Approved',
   declined: 'Not selected',
+  removed: 'No longer with us',
   cancelled: 'Cancelled',
   active: 'Scheduled',
   on_the_way: 'On the way',
@@ -33,7 +34,7 @@ export function nextStatus(status) {
 }
 
 export function isFinalStatus(status) {
-  return status === 'approved' || status === 'declined' || status === 'cancelled';
+  return status === 'approved' || status === 'declined' || status === 'cancelled' || status === 'removed';
 }
 
 export function getApplicationView(rawStatus) {

@@ -26,6 +26,7 @@ import {
   isFirebaseConfigured,
   setApplicationStatus,
   removeApplication,
+  removeFromRoster,
   removeBooking,
   removeTicket,
   setBookingCleaner,
@@ -63,6 +64,7 @@ export default function AdminScreen({ navigation }) {
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null); // booking being edited
   const [editingCleaner, setEditingCleaner] = useState(null); // cleaner / applicant being edited
+  const [toRemove, setToRemove] = useState(null); // cleaner about to be taken off the roster
   const [messaging, setMessaging] = useState(null); // booking whose customer we're messaging
   const [notice, setNotice] = useState('');
   const [assigning, setAssigning] = useState(null); // booking currently being matched
@@ -135,6 +137,14 @@ export default function AdminScreen({ navigation }) {
 
   const changeBookingStatus = async (id, status) => {
     setLoadError('');
+    // A job can't start (on the way, or the timer) until a cleaner is assigned to it.
+    if (status === 'on_the_way' || status === 'in_progress') {
+      const booking = bookings.find((b) => b.id === id);
+      if (booking && !booking.cleanerId) {
+        setLoadError('Assign a cleaner before starting this job.');
+        return;
+      }
+    }
     try {
       await setBookingStatus(id, status);
       setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
@@ -151,6 +161,11 @@ export default function AdminScreen({ navigation }) {
     try {
       await setBookingCleaner(booking.id, cleaner);
       const fields = { cleanerId: cleaner ? cleaner.id : null, cleanerName: cleaner ? cleaner.fullName || 'Cleaner' : null };
+      // Nobody left to be on the way, so the job goes back to scheduled.
+      if (!cleaner && booking.status === 'on_the_way') {
+        await setBookingStatus(booking.id, 'active');
+        fields.status = 'active';
+      }
       setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, ...fields } : b)));
     } catch (e) {
       setLoadError("Couldn't assign that cleaner. Check your admin rules and try again.");
@@ -252,6 +267,41 @@ export default function AdminScreen({ navigation }) {
     } catch (e) {
       setLoadError("Couldn't save those changes. Check your admin rules and try again.");
       return false;
+    }
+  };
+
+  // Taking a cleaner off the roster. Refuses while they're in the middle of a clean.
+  const askRemoveCleaner = (cleaner) => {
+    setLoadError('');
+    if (bookings.some((b) => b.cleanerId === cleaner.id && b.status === 'in_progress')) {
+      setLoadError(`${cleaner.fullName || 'This cleaner'} is in the middle of a clean. Mark it completed before removing them.`);
+      return;
+    }
+    setToRemove(cleaner);
+  };
+
+  const removeCleaner = async () => {
+    const cleaner = toRemove;
+    setToRemove(null);
+    if (!cleaner) return;
+    setLoadError('');
+    const jobs = bookings.filter((b) => b.cleanerId === cleaner.id && (!b.status || b.status === 'active' || b.status === 'on_the_way'));
+    try {
+      await removeFromRoster(cleaner.id, jobs.map((j) => j.id));
+      setApplications((prev) => prev.map((a) => (a.id === cleaner.id ? { ...a, status: 'removed' } : a)));
+      setBookings((prev) =>
+        prev.map((b) =>
+          jobs.some((j) => j.id === b.id) ? { ...b, cleanerId: null, cleanerName: null, status: 'active', startedMs: null } : b,
+        ),
+      );
+      setNotice(
+        jobs.length
+          ? `${cleaner.fullName || 'Cleaner'} removed. ${jobs.length} upcoming job${jobs.length === 1 ? '' : 's'} now need${jobs.length === 1 ? 's' : ''} a new cleaner.`
+          : `${cleaner.fullName || 'Cleaner'} removed from the roster.`,
+      );
+      setTimeout(() => setNotice(''), 5000);
+    } catch (e) {
+      setLoadError("Couldn't remove that cleaner. Check your admin rules and try again.");
     }
   };
 
@@ -446,7 +496,7 @@ export default function AdminScreen({ navigation }) {
                   />
                 ))
               : tab === 'roster'
-              ? cleaners.map((c) => <CleanerCard key={c.id} c={c} bookings={bookings} onEdit={() => setEditingCleaner(c)} />)
+              ? cleaners.map((c) => <CleanerCard key={c.id} c={c} bookings={bookings} onEdit={() => setEditingCleaner(c)} onRemove={() => askRemoveCleaner(c)} />)
               : tab === 'applications'
               ? applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} onEdit={() => setEditingCleaner(a)} onDelete={() => setToDelete({ kind: 'application', id: a.id, label: a.fullName || 'this applicant' })} />)
               : items.map((b) => <BookingCard key={b.id} b={b} onChange={changeBookingStatus} onAssign={() => setAssigning(b)} onEdit={() => setEditing(b)} onMessage={() => setMessaging(b)} onDelete={() => setToDelete({ kind: 'booking', id: b.id, label: `${b.service?.name || 'this booking'} on ${b.date || ''}` })} />)}
@@ -485,6 +535,25 @@ export default function AdminScreen({ navigation }) {
         bookings={bookings}
         onClose={() => setAssigning(null)}
         onAssign={assign}
+      />
+
+      <ConfirmModal
+        visible={!!toRemove}
+        title={`Remove ${toRemove?.fullName || 'this cleaner'}?`}
+        message={
+          (() => {
+            const n = toRemove ? bookings.filter((b) => b.cleanerId === toRemove.id && (!b.status || b.status === 'active' || b.status === 'on_the_way')).length : 0;
+            return (
+              `They'll stop being bookable${n ? `, and their ${n} upcoming job${n === 1 ? '' : 's'} will need a new cleaner` : ''}. ` +
+              'Past jobs keep their name. You can reinstate them any time from the Applications tab.'
+            );
+          })()
+        }
+        onRequestClose={() => setToRemove(null)}
+        buttons={[
+          { text: 'Keep', style: 'cancel', onPress: () => setToRemove(null) },
+          { text: 'Remove', style: 'destructive', onPress: removeCleaner },
+        ]}
       />
 
       <ConfirmModal
@@ -528,6 +597,7 @@ function BookingCard({ b, onChange, onAssign, onEdit, onMessage, onDelete }) {
   const enRoute = b.status === 'on_the_way';
   const working = b.status === 'in_progress';
   const live = scheduled || enRoute || working; // still an open job
+  const hasCleaner = !!b.cleanerId;
   return (
     <GlassCard style={styles.card} intensity={45}>
       <View style={styles.cardInner}>
@@ -550,13 +620,16 @@ function BookingCard({ b, onChange, onAssign, onEdit, onMessage, onDelete }) {
         <Line label="Deposit" value={money(b.deposit)} />
         <Line label="Discount" value={b.discountCode ? `${b.discountCode} (-${money(b.discountAmount)})` : ''} />
         <Line label="Booked" value={formatWhen(b.createdMs)} />
+        {(scheduled || enRoute) && !hasCleaner ? (
+          <Text style={styles.needsCleanerHint}>Assign a cleaner before this job can start.</Text>
+        ) : null}
         <View style={styles.actions}>
-            {scheduled ? (
+            {scheduled && hasCleaner ? (
               <AnimatedPressable style={styles.advanceButton} onPress={() => onChange(b.id, 'on_the_way')}>
                 <Text style={styles.advanceText}>Cleaner is on the way</Text>
               </AnimatedPressable>
             ) : null}
-          {scheduled || enRoute ? (
+          {(scheduled || enRoute) && hasCleaner ? (
             <AnimatedPressable
               style={enRoute ? styles.advanceButton : styles.secondaryButton}
               onPress={() => onChange(b.id, 'in_progress')}
@@ -588,8 +661,10 @@ function BookingCard({ b, onChange, onAssign, onEdit, onMessage, onDelete }) {
             </AnimatedPressable>
           ) : null}
           {scheduled || enRoute ? (
-            <AnimatedPressable style={styles.secondaryButton} onPress={onAssign}>
-              <Text style={styles.secondaryText}>{b.cleanerId ? 'Change cleaner' : 'Assign cleaner'}</Text>
+            <AnimatedPressable style={hasCleaner ? styles.secondaryButton : styles.advanceButton} onPress={onAssign}>
+              <Text style={hasCleaner ? styles.secondaryText : styles.advanceText}>
+                {hasCleaner ? 'Change cleaner' : 'Assign cleaner'}
+              </Text>
             </AnimatedPressable>
           ) : null}
           <AnimatedPressable style={styles.deleteButton} onPress={onDelete}>
@@ -687,7 +762,7 @@ function Stat({ value, label }) {
 
 const STATE_LABEL = { working: 'Cleaning', en_route: 'En route', booked: 'Booked', free: 'Free' };
 
-function CleanerCard({ c, bookings, onEdit }) {
+function CleanerCard({ c, bookings, onEdit, onRemove }) {
   const st = cleanerStats(c, bookings);
   const where = st.enRoute
     ? `${st.enRoute.status === 'in_progress' ? 'Cleaning at' : 'On the way to'} ${st.enRoute.address}`
@@ -737,6 +812,9 @@ function CleanerCard({ c, bookings, onEdit }) {
           <AnimatedPressable style={styles.secondaryButton} onPress={onEdit}>
             <Text style={styles.secondaryText}>Edit</Text>
           </AnimatedPressable>
+          <AnimatedPressable style={styles.deleteButton} onPress={onRemove}>
+            <Text style={styles.declineText}>Remove</Text>
+          </AnimatedPressable>
         </View>
       </View>
     </GlassCard>
@@ -767,6 +845,11 @@ function ApplicationCard({ a, onChange, onDelete, onEdit }) {
                   {next === 'approved' ? 'Approve' : `Move to ${STATUS_LABELS[next]}`}
                 </Text>
               </AnimatedPressable>
+          ) : null}
+          {a.status === 'removed' ? (
+            <AnimatedPressable style={styles.advanceButton} onPress={() => onChange(a.id, 'approved')}>
+              <Text style={styles.advanceText}>Reinstate</Text>
+            </AnimatedPressable>
           ) : null}
           {open ? (
             <AnimatedPressable style={styles.declineButton} onPress={() => onChange(a.id, 'declined')}>
@@ -897,6 +980,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   tabs: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  needsCleanerHint: { fontSize: 12, fontWeight: '600', color: '#A32D2D', marginTop: spacing.sm },
   tab: {
     borderWidth: 1,
     borderColor: colors.border,

@@ -15,6 +15,7 @@ import {
   listBookings,
   updateApplicationStatus,
   updateBookingDetails,
+  removeCleanerFromRoster,
   syncCleanerAvailability,
   updateCleanerDetails,
   updateBookingStatus,
@@ -40,6 +41,7 @@ export const removeTicket = deleteTicket;
 export const messageCustomer = createAdminMessage;
 export const editBooking = updateBookingDetails;
 export const editCleaner = updateCleanerDetails;
+export const removeFromRoster = removeCleanerFromRoster;
 export const removeBooking = deleteBooking;
 export const removeApplication = deleteApplication;
 

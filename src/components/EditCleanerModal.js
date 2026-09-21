@@ -40,7 +40,7 @@ function Editor({ cleaner, bookings, onClose, onSave }) {
   // Jobs already assigned to them that the new hours can no longer cover.
   const updated = { ...cleaner, days, timeBlocks };
   const clashes = bookings
-    .filter((b) => b.cleanerId === cleaner.id && isActiveJob(b))
+    .filter((b) => b.cleanerId === cleaner.id && isActiveJob(b) && (!b.status || b.status === 'active'))
     .map((b) => ({ booking: b, check: checkCleaner(updated, b, bookings) }))
     .filter((x) => !x.check.ok && /work|available/i.test(x.check.reason));
 
