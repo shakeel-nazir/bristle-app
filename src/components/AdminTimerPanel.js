@@ -1,9 +1,40 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import { timerState, formatClock } from '../utils/cleanTimer';
 import useNow from '../utils/useNow';
+
+// A dot on the progress bar where a task finishes: green when done, and it pulses when that task
+// is about to finish.
+function BarDot({ fraction, done, almostDone }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!almostDone) return undefined;
+    const loop = Animated.loop(
+      Animated.timing(pulse, { toValue: 1, duration: 1300, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [almostDone, pulse]);
+
+  return (
+    <View style={[styles.barDotWrap, { left: `${fraction * 100}%` }]} pointerEvents="none">
+      {almostDone ? (
+        <Animated.View
+          style={[
+            styles.barHalo,
+            {
+              opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+              transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 2.4] }) }],
+            },
+          ]}
+        />
+      ) : null}
+      <View style={[styles.barDot, done && styles.barDotDone, almostDone && styles.barDotSoon]} />
+    </View>
+  );
+}
 
 // The same live timer the customer sees, in a compact form for the admin booking card.
 export default function AdminTimerPanel({ booking }) {
@@ -29,7 +60,9 @@ export default function AdminTimerPanel({ booking }) {
             </Text>
           ) : (
             <>
-              <Text style={styles.nowLabel}>Task {t.currentIndex + 1} of {t.tasks.length}</Text>
+              <Text style={styles.nowLabel}>
+                Task {t.currentIndex + 1} of {t.tasks.length}{current?.almostDone ? ' · almost done' : ''}
+              </Text>
               <Text style={styles.nowTask} numberOfLines={1}>{current?.label}</Text>
               <Text style={styles.nowClock}>{formatClock(current?.leftMs ?? 0)}</Text>
             </>
@@ -37,8 +70,18 @@ export default function AdminTimerPanel({ booking }) {
         </View>
       </View>
 
-      <View style={styles.track}>
-        <View style={[styles.fill, over && styles.fillOver, { width: `${Math.round(t.progress * 100)}%` }]} />
+      <View style={styles.barWrap}>
+        <View style={styles.track}>
+          <View style={[styles.fill, over && styles.fillOver, { width: `${Math.round(t.progress * 100)}%` }]} />
+        </View>
+        {t.tasks.slice(0, -1).map((task, i) => (
+          <BarDot
+            key={`${task.label}-${i}`}
+            fraction={task.endFraction}
+            done={task.state === 'done'}
+            almostDone={task.almostDone}
+          />
+        ))}
       </View>
 
       <View style={styles.tasks}>
@@ -79,7 +122,13 @@ const styles = StyleSheet.create({
   nowTask: { fontSize: 15, fontWeight: '700', color: colors.text, marginTop: 1 },
   nowClock: { fontSize: 18, fontWeight: '800', color: colors.accent, fontVariant: ['tabular-nums'] },
   textOver: { color: '#A32D2D' },
-  track: { height: 6, borderRadius: 3, backgroundColor: 'rgba(46,42,38,0.10)', overflow: 'hidden', marginTop: spacing.sm },
+  barWrap: { height: 14, justifyContent: 'center', marginTop: spacing.sm },
+  track: { height: 6, borderRadius: 3, backgroundColor: 'rgba(46,42,38,0.10)', overflow: 'hidden' },
+  barDotWrap: { position: 'absolute', top: 0, width: 14, height: 14, marginLeft: -7, alignItems: 'center', justifyContent: 'center' },
+  barHalo: { position: 'absolute', width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
+  barDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: 'rgba(46,42,38,0.35)' },
+  barDotDone: { backgroundColor: '#3F8557', borderColor: '#FFFFFF' },
+  barDotSoon: { backgroundColor: colors.accent, borderColor: '#FFFFFF' },
   fill: { height: '100%', borderRadius: 3, backgroundColor: colors.accent },
   fillOver: { backgroundColor: '#A32D2D' },
   tasks: { marginTop: spacing.sm, gap: 4 },

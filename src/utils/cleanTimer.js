@@ -39,12 +39,18 @@ export function timerState(booking, nowMs) {
       state = 'current';
       currentIndex = i;
     }
+    const leftMs = state === 'current' ? cursor - elapsedMs : state === 'done' ? 0 : length;
     return {
       label: t.label,
       minutes: t.minutes,
       state,
-      leftMs: state === 'current' ? cursor - elapsedMs : state === 'done' ? 0 : length,
+      leftMs,
       progress: state === 'done' ? 1 : state === 'current' ? (elapsedMs - start) / length : 0,
+      endMs: cursor,
+      // Where this task ends along the whole clean (0-1), for the dots on the ring / bar.
+      endFraction: totalMs ? cursor / totalMs : 1,
+      // The task being worked on is about to be finished (last 5 min, or last quarter of a short task).
+      almostDone: state === 'current' && leftMs <= Math.min(5 * MIN, length * 0.25),
     };
   });
 

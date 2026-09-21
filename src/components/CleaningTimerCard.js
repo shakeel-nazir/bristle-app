@@ -13,6 +13,47 @@ const STROKE = 12;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+// A small dot on the ring where a task finishes. Filled green once that task is done; when the
+// task is about to finish, it glows and pulses so you can see the finish is near.
+function RingDot({ fraction, done, almostDone }) {
+  const angle = (fraction * 360 - 90) * (Math.PI / 180);
+  const cx = SIZE / 2 + RADIUS * Math.cos(angle);
+  const cy = SIZE / 2 + RADIUS * Math.sin(angle);
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!almostDone) return undefined;
+    const loop = Animated.loop(
+      Animated.timing(pulse, { toValue: 1, duration: 1300, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [almostDone, pulse]);
+
+  return (
+    <>
+      {almostDone ? (
+        <AnimatedCircle
+          cx={cx}
+          cy={cy}
+          r={pulse.interpolate({ inputRange: [0, 1], outputRange: [5, 13] })}
+          fill={colors.accent}
+          fillOpacity={pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] })}
+        />
+      ) : null}
+      <Circle
+        cx={cx}
+        cy={cy}
+        r={almostDone ? 6.5 : 5}
+        fill={done ? '#3F8557' : almostDone ? colors.accent : '#FFFFFF'}
+        stroke={done ? '#FFFFFF' : almostDone ? '#FFFFFF' : 'rgba(46,42,38,0.35)'}
+        strokeWidth={2}
+      />
+    </>
+  );
+}
+
 function PulsingDot() {
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -86,6 +127,14 @@ export default function CleaningTimerCard({ booking, onViewBooking }) {
                 rotation="-90"
                 origin={`${SIZE / 2}, ${SIZE / 2}`}
               />
+              {t.tasks.slice(0, -1).map((task, i) => (
+                <RingDot
+                  key={`${task.label}-${i}`}
+                  fraction={task.endFraction}
+                  done={task.state === 'done'}
+                  almostDone={task.almostDone}
+                />
+              ))}
             </Svg>
             <View style={styles.ringCenter} pointerEvents="none">
               {t.finished ? (
@@ -108,7 +157,7 @@ export default function CleaningTimerCard({ booking, onViewBooking }) {
               </>
             ) : (
               <>
-                <Text style={styles.nowLabel}>Right now</Text>
+                <Text style={styles.nowLabel}>{current?.almostDone ? 'Almost done' : 'Right now'}</Text>
                 <Text style={styles.nowTask} numberOfLines={2}>
                   {current?.label}
                 </Text>
