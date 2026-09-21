@@ -6,6 +6,7 @@ import { colors, spacing, radius } from '../theme/theme';
 import { useBooking } from '../context/BookingContext';
 import { useApplication } from '../context/ApplicationContext';
 import { useAuth } from '../context/AuthContext';
+import { useTickets } from '../context/TicketContext';
 import GlassCard from '../components/GlassCard';
 import ConfirmModal from '../components/ConfirmModal';
 import AnimatedPressable from '../components/AnimatedPressable';
@@ -33,6 +34,8 @@ export default function HomeScreen({ navigation }) {
   const { upcomingBookings, canBookMore, discount } = useBooking();
   const { application, cancelApplication } = useApplication();
   const { displayFirstName } = useAuth();
+  const { unreadCount, tickets } = useTickets();
+  const unreadTicket = tickets.find((t) => t.status === 'answered' && t.customerSeen === false);
   const [limitVisible, setLimitVisible] = useState(false);
   const [comingSoonVisible, setComingSoonVisible] = useState(false);
   const [cancelAppVisible, setCancelAppVisible] = useState(false);
@@ -146,6 +149,29 @@ export default function HomeScreen({ navigation }) {
 
       <Animated.View style={{ flex: 1, opacity: fadeIn, transform: [{ translateY: slideIn }] }}>
         <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent}>
+        {unreadTicket ? (
+          <GlassCard
+            style={styles.supportNotice}
+            intensity={45}
+            onPress={() => navigation.navigate('Ticket', { id: unreadTicket.id })}
+          >
+            <View style={styles.supportNoticeInner}>
+              <View style={styles.supportNoticeIcon}>
+                <Ionicons name="chatbubble-ellipses" size={18} color={colors.accentText} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.supportNoticeTitle}>
+                  {unreadCount > 1 ? `${unreadCount} new replies from support` : 'New reply from support'}
+                </Text>
+                <Text style={styles.supportNoticeText} numberOfLines={1}>
+                  {unreadTicket.messages[unreadTicket.messages.length - 1].text}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            </View>
+          </GlassCard>
+        ) : null}
+
         {upcomingBookings.length > 0 ? (
           upcomingBookings.map((booking) => (
             <GlassCard key={booking.id} style={styles.upcomingCard} intensity={45}>
@@ -185,24 +211,7 @@ export default function HomeScreen({ navigation }) {
               </View>
             </GlassCard>
           ))
-        ) : (
-          <GlassCard
-            style={styles.nextCard}
-            intensity={45}
-            onPress={() => startBooking()}
-          >
-            <View style={styles.nextInner}>
-              <View style={styles.nextIcon}>
-                <Ionicons name="calendar-outline" size={18} color={colors.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.nextTitle}>No cleans booked yet</Text>
-                <Text style={styles.nextSubtitle}>Book your first clean below</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-            </View>
-          </GlassCard>
-        )}
+        ) : null}
 
         {application && (
           <GlassCard style={styles.applicationCard} intensity={45}>
@@ -280,8 +289,11 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.footerLink}>Legal</Text>
           </Pressable>
           <Text style={styles.footerDot}>·</Text>
-          <Pressable onPress={() => setComingSoonVisible(true)} hitSlop={10}>
-            <Text style={styles.footerLink}>Support</Text>
+          <Pressable onPress={() => navigation.navigate('Support')} hitSlop={10}>
+            <Text style={styles.footerLink}>
+              Support
+              {unreadCount > 0 ? <Text style={styles.footerDotAlert}> ●</Text> : null}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -362,34 +374,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingTop: 0,
     paddingBottom: spacing.xl,
-  },
-  nextCard: {
-    borderRadius: radius.lg,
-    marginBottom: spacing.lg,
-  },
-  nextInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  nextIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(232,115,74,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-  nextTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  nextSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 1,
   },
   upcomingCard: {
     borderRadius: radius.lg,
@@ -583,6 +567,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   footerLink: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  supportNotice: { borderRadius: radius.lg, marginBottom: spacing.md },
+  supportNoticeInner: { flexDirection: 'row', alignItems: 'center', padding: spacing.md },
+  supportNoticeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  supportNoticeTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+  supportNoticeText: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+  footerDotAlert: { color: colors.accent, fontSize: 10 },
   footerDot: { fontSize: 12, color: colors.textSecondary },
   quickGrid: {
     flexDirection: 'row',

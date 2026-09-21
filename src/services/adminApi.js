@@ -5,6 +5,10 @@ import {
   dataAvailable,
   deleteApplication,
   deleteBooking,
+  deleteTicket,
+  listTickets,
+  replyTicket,
+  setTicketStatus,
   isDemo,
   listApplications,
   listBookings,
@@ -18,6 +22,10 @@ export const fetchApplications = listApplications;
 export const setApplicationStatus = updateApplicationStatus;
 export const setBookingStatus = updateBookingStatus;
 export const setBookingCleaner = assignBookingCleaner;
+export const fetchTickets = listTickets;
+export const answerTicket = (id, text) => replyTicket(id, 'admin', text);
+export const changeTicketStatus = setTicketStatus;
+export const removeTicket = deleteTicket;
 export const removeBooking = deleteBooking;
 export const removeApplication = deleteApplication;
 

@@ -10,12 +10,16 @@ import AssignCleanerModal from '../components/AssignCleanerModal';
 import {
   adminSignIn,
   adminSignOut,
+  answerTicket,
+  changeTicketStatus,
   fetchApplications,
   fetchBookings,
+  fetchTickets,
   isFirebaseConfigured,
   setApplicationStatus,
   removeApplication,
   removeBooking,
+  removeTicket,
   setBookingCleaner,
   setBookingStatus,
   watchAdminUser,
@@ -23,6 +27,7 @@ import {
 import { STATUS_LABELS, isFinalStatus, nextStatus } from '../utils/applicationStatus';
 import { describeHome } from '../utils/home';
 import { cleanerStats } from '../utils/cleanerStats';
+import { TICKET_STATUS_LABELS } from '../utils/tickets';
 
 function formatWhen(ms) {
   if (!ms) return '';
@@ -38,7 +43,10 @@ export default function AdminScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  // Two sides to the business: the people who want cleaning, and the people who clean.
+  const [section, setSection] = useState('customers');
   const [tab, setTab] = useState('upcoming');
+  const [tickets, setTickets] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -52,9 +60,10 @@ export default function AdminScreen({ navigation }) {
     setLoading(true);
     setLoadError('');
     try {
-      const [b, a] = await Promise.all([fetchBookings(), fetchApplications()]);
+      const [b, a, t] = await Promise.all([fetchBookings(), fetchApplications(), fetchTickets()]);
       setBookings(b);
       setApplications(a);
+      setTickets(t);
     } catch (e) {
       setLoadError("Couldn't load data. This account may not have admin access.");
     } finally {
@@ -100,13 +109,41 @@ export default function AdminScreen({ navigation }) {
     }
   };
 
+  const replyToTicket = async (id, text) => {
+    setLoadError('');
+    try {
+      await answerTicket(id, text);
+      const msg = { from: 'admin', text, ts: Date.now() };
+      setTickets((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, status: 'answered', messages: [...t.messages, msg], updatedMs: msg.ts } : t)),
+      );
+      return true;
+    } catch (e) {
+      setLoadError("Couldn't send that reply. Check your admin rules and try again.");
+      return false;
+    }
+  };
+
+  const setTicketState = async (id, status) => {
+    setLoadError('');
+    try {
+      await changeTicketStatus(id, status);
+      setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+    } catch (e) {
+      setLoadError("Couldn't update that ticket. Check your admin rules and try again.");
+    }
+  };
+
   const confirmDelete = async () => {
     const target = toDelete;
     setToDelete(null);
     if (!target) return;
     setLoadError('');
     try {
-      if (target.kind === 'booking') {
+      if (target.kind === 'ticket') {
+        await removeTicket(target.id);
+        setTickets((prev) => prev.filter((t) => t.id !== target.id));
+      } else if (target.kind === 'booking') {
         await removeBooking(target.id);
         setBookings((prev) => prev.filter((b) => b.id !== target.id));
       } else {
@@ -131,7 +168,39 @@ export default function AdminScreen({ navigation }) {
   const upcoming = bookings.filter(isUpcoming);
   const past = bookings.filter((b) => !isUpcoming(b));
   const cleaners = applications.filter((a) => a.status === 'approved');
-  const items = tab === 'upcoming' ? upcoming : tab === 'past' ? past : tab === 'cleaners' ? cleaners : applications;
+  const pipeline = applications.filter((a) => ['under_review', 'interview', 'background_check'].includes(a.status));
+  const needsCleaner = upcoming.filter((b) => !b.cleanerId).length;
+  const openTickets = tickets.filter((t) => t.status === 'open').length;
+  const sortedTickets = [...tickets].sort(
+    (a, b) => ['open', 'answered', 'closed'].indexOf(a.status) - ['open', 'answered', 'closed'].indexOf(b.status) || b.updatedMs - a.updatedMs,
+  );
+
+  // Two sections, each with its own tabs. Numbers in red/orange are things that need you.
+  const SECTIONS = [
+    { key: 'customers', label: 'Customers', hint: 'Jobs & support', alert: needsCleaner + openTickets },
+    { key: 'cleaners', label: 'Cleaners', hint: 'Roster & applications', alert: pipeline.length },
+  ];
+  const TABS = {
+    customers: [
+      ['upcoming', `Upcoming (${upcoming.length})`],
+      ['past', `Past (${past.length})`],
+      ['support', `Support (${tickets.length})`, openTickets],
+    ],
+    cleaners: [
+      ['roster', `Roster (${cleaners.length})`],
+      ['applications', `Applications (${applications.length})`, pipeline.length],
+    ],
+  };
+  const switchSection = (key) => {
+    setSection(key);
+    setTab(TABS[key][0][0]);
+  };
+  const summary =
+    section === 'customers'
+      ? `${upcoming.length} upcoming · ${needsCleaner} need a cleaner · ${openTickets} open ticket${openTickets === 1 ? '' : 's'}`
+      : `${cleaners.length} approved · ${pipeline.length} application${pipeline.length === 1 ? '' : 's'} in progress`;
+  const items =
+    tab === 'upcoming' ? upcoming : tab === 'past' ? past : tab === 'support' ? tickets : tab === 'roster' ? cleaners : applications;
 
   return (
     <View style={styles.container}>
@@ -197,19 +266,38 @@ export default function AdminScreen({ navigation }) {
           </GlassCard>
         ) : (
           <>
+            <View style={styles.sections}>
+              {SECTIONS.map((sec) => (
+                <AnimatedPressable
+                  key={sec.key}
+                  style={[styles.section, section === sec.key && styles.sectionOn]}
+                  onPress={() => switchSection(sec.key)}
+                >
+                  <View style={styles.sectionTop}>
+                    <Text style={[styles.sectionLabel, section === sec.key && styles.sectionLabelOn]}>{sec.label}</Text>
+                    {sec.alert > 0 ? (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>{sec.alert}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={[styles.sectionHint, section === sec.key && styles.sectionHintOn]}>{sec.hint}</Text>
+                </AnimatedPressable>
+              ))}
+            </View>
+            <Text style={styles.summary}>{summary}</Text>
+
             <View style={styles.tabs}>
-              {[
-                ['upcoming', `Upcoming (${upcoming.length})`],
-                ['past', `Past (${past.length})`],
-                ['cleaners', `Cleaners (${cleaners.length})`],
-                ['applications', `Applications (${applications.length})`],
-              ].map(([key, label]) => (
+              {TABS[section].map(([key, label, alert]) => (
                 <AnimatedPressable
                   key={key}
                   style={[styles.tab, tab === key && styles.tabActive]}
                   onPress={() => setTab(key)}
                 >
-                  <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
+                  <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>
+                    {label}
+                    {alert ? `  ● ${alert}` : ''}
+                  </Text>
                 </AnimatedPressable>
               ))}
             </View>
@@ -220,7 +308,17 @@ export default function AdminScreen({ navigation }) {
               <Text style={styles.muted}>Nothing here yet.</Text>
             ) : null}
 
-            {tab === 'cleaners'
+            {tab === 'support'
+              ? sortedTickets.map((t) => (
+                  <TicketCard
+                    key={t.id}
+                    t={t}
+                    onReply={replyToTicket}
+                    onStatus={setTicketState}
+                    onDelete={() => setToDelete({ kind: 'ticket', id: t.id, label: `this ${t.category || 'support'} ticket` })}
+                  />
+                ))
+              : tab === 'roster'
               ? cleaners.map((c) => <CleanerCard key={c.id} c={c} bookings={bookings} />)
               : tab === 'applications'
               ? applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} onDelete={() => setToDelete({ kind: 'application', id: a.id, label: a.fullName || 'this applicant' })} />)
@@ -240,7 +338,7 @@ export default function AdminScreen({ navigation }) {
 
       <ConfirmModal
         visible={!!toDelete}
-        title={toDelete?.kind === 'booking' ? 'Delete this booking?' : 'Delete this application?'}
+        title={`Delete this ${toDelete?.kind || 'item'}?`}
         message={`This permanently deletes ${toDelete?.label || ''}. It can’t be undone.`}
         onRequestClose={() => setToDelete(null)}
         buttons={[
@@ -313,6 +411,81 @@ function BookingCard({ b, onChange, onAssign, onDelete }) {
               <Text style={styles.secondaryText}>{b.cleanerId ? 'Change cleaner' : 'Assign cleaner'}</Text>
             </AnimatedPressable>
           ) : null}
+          <AnimatedPressable style={styles.deleteButton} onPress={onDelete}>
+            <Text style={styles.declineText}>Delete</Text>
+          </AnimatedPressable>
+        </View>
+      </View>
+    </GlassCard>
+  );
+}
+
+function TicketCard({ t, onReply, onStatus, onDelete }) {
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const who = t.userName || t.userEmail || 'Customer';
+
+  const send = async () => {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    const ok = await onReply(t.id, text.trim());
+    setSending(false);
+    if (ok) setText('');
+  };
+
+  return (
+    <GlassCard style={styles.card} intensity={45}>
+      <View style={styles.cardInner}>
+        <View style={styles.cardHead}>
+          <Text style={styles.cardTitle}>{t.category || 'Support'}</Text>
+          <View
+            style={[
+              styles.pill,
+              t.status === 'open' ? styles.pillProgress : t.status === 'answered' ? styles.pillActive : styles.pillCancelled,
+            ]}
+          >
+            <Text
+              style={[
+                styles.pillText,
+                t.status === 'open' ? styles.pillTextProgress : t.status === 'answered' ? styles.pillTextActive : styles.pillTextCancelled,
+              ]}
+            >
+              {t.status === 'open' ? 'Needs reply' : TICKET_STATUS_LABELS[t.status]}
+            </Text>
+          </View>
+        </View>
+        <Line label="From" value={[who, t.userName && t.userEmail ? t.userEmail : ''].filter(Boolean).join(' · ')} />
+        <Line label="Booking" value={t.bookingLabel} />
+        <Line label="Last activity" value={formatWhen(t.updatedMs)} />
+
+        <View style={styles.thread}>
+          {t.messages.map((m, i) => (
+            <View key={i} style={[styles.msg, m.from === 'admin' ? styles.msgAdmin : styles.msgCustomer]}>
+              <Text style={styles.msgFrom}>{m.from === 'admin' ? 'You' : who}</Text>
+              <Text style={styles.msgText}>{m.text}</Text>
+              <Text style={styles.msgTime}>{formatWhen(m.ts)}</Text>
+            </View>
+          ))}
+        </View>
+
+        <TextInput
+          style={styles.replyInput}
+          value={text}
+          onChangeText={setText}
+          placeholder="Write your reply…"
+          placeholderTextColor={colors.textSecondary}
+          multiline
+        />
+        <View style={styles.actions}>
+          <AnimatedPressable style={styles.advanceButton} onPress={send} disabled={sending || !text.trim()}>
+            <Text style={styles.advanceText}>{sending ? 'Sending…' : 'Send reply'}</Text>
+          </AnimatedPressable>
+          <AnimatedPressable
+            style={styles.secondaryButton}
+            onPress={() => onStatus(t.id, t.status === 'closed' ? 'open' : 'closed')}
+          >
+            <Text style={styles.secondaryText}>{t.status === 'closed' ? 'Reopen' : 'Close'}</Text>
+          </AnimatedPressable>
           <AnimatedPressable style={styles.deleteButton} onPress={onDelete}>
             <Text style={styles.declineText}>Delete</Text>
           </AnimatedPressable>
@@ -491,6 +664,51 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
   pillTextActive: { color: '#3F8557' },
   pillTextCancelled: { color: '#A32D2D' },
+  sections: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  section: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  sectionOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  sectionTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionLabel: { fontSize: 16, fontWeight: '800', color: colors.primary },
+  sectionLabelOn: { color: colors.background },
+  sectionHint: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  sectionHintOn: { color: 'rgba(244,238,233,0.7)' },
+  badge: {
+    backgroundColor: colors.accent,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: colors.accentText, fontSize: 11, fontWeight: '800' },
+  summary: { fontSize: 12, color: colors.textSecondary, marginBottom: spacing.md },
+  thread: { marginTop: spacing.sm, gap: spacing.sm },
+  msg: { borderRadius: radius.sm, padding: spacing.sm },
+  msgCustomer: { backgroundColor: 'rgba(255,255,255,0.7)', marginRight: 24 },
+  msgAdmin: { backgroundColor: 'rgba(232,115,74,0.15)', marginLeft: 24 },
+  msgFrom: { fontSize: 11, fontWeight: '700', color: colors.accent },
+  msgText: { fontSize: 13, color: colors.text, lineHeight: 19, marginTop: 1 },
+  msgTime: { fontSize: 10, color: colors.textSecondary, marginTop: 3 },
+  replyInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    fontSize: 13,
+    color: colors.text,
+    minHeight: 56,
+    marginTop: spacing.md,
+    textAlignVertical: 'top',
+  },
   tabs: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   tab: {
     borderWidth: 1,

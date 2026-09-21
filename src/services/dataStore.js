@@ -1,4 +1,5 @@
 import {
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -34,8 +35,17 @@ const mem = {
   // Demo/offline seed so redeeming can be tried without a second account.
   referralCodes: new Map([['DEMO25', { ownerUid: 'demo-owner' }]]),
   users: new Map(),
+  tickets: new Map(),
 };
 const appListeners = new Map();
+const ticketListeners = new Set();
+
+function ticketsFor(uid) {
+  return Array.from(mem.tickets.values()).filter((t) => t.uid === uid);
+}
+function notifyTickets() {
+  ticketListeners.forEach((l) => l.cb(ticketsFor(l.uid)));
+}
 
 // Sample data so the admin page has something to show in the dev-only #demo mode.
 if (isDemo) {
@@ -54,6 +64,12 @@ if (isDemo) {
     { id: 'a3', fullName: 'Marcus Lee', email: 'marcus@example.com', phone: '(613) 555-0177', experience: 'New to cleaning', days: ['Sat', 'Sun'], timeBlocks: ['Afternoon'], status: 'approved', createdMs: ago(90) },
     { id: 'a4', fullName: 'Dana Okafor', email: 'dana@example.com', phone: '(613) 555-0190', experience: '1–3 years', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], timeBlocks: ['Morning', 'Afternoon'], status: 'interview', createdMs: ago(60) },
   ].forEach((a) => mem.cleanerApplications.set(a.id, a));
+  const msg = (from, text, h) => ({ from, text, ts: ago(h) });
+  [
+    { id: 't1', uid: 'local', category: 'Booking', userName: '', userEmail: '', bookingLabel: '4-Hour Clean · Sat, Sep 26', status: 'answered', customerSeen: false, messages: [msg('customer', 'Can I change my cleaning to the afternoon? Something came up in the morning.', 5), msg('admin', 'Of course! I’ve moved you to 1:00 PM on Saturday. See you then.', 2)], createdMs: ago(5), updatedMs: ago(2) },
+    { id: 't2', uid: 'someone-else', category: 'Payment', userName: 'Jordan Blake', userEmail: 'jordan@example.com', bookingLabel: '2-Hour Clean · Tue, Sep 29', status: 'open', customerSeen: true, messages: [msg('customer', 'I was charged the deposit twice, can you check?', 1)], createdMs: ago(1), updatedMs: ago(1) },
+    { id: 't3', uid: 'someone-else2', category: 'Something else', userName: 'Guest', userEmail: '', status: 'closed', customerSeen: true, messages: [msg('customer', 'Do you bring your own supplies?', 50), msg('admin', 'Yes, we bring everything, including eco-friendly products.', 48)], createdMs: ago(50), updatedMs: ago(48) },
+  ].forEach((t) => mem.tickets.set(t.id, t));
 }
 
 
@@ -411,5 +427,108 @@ export async function deleteMyData(uid) {
     await deleteDoc(d.ref);
   }
   for (const d of (await mine('referralCodes', 'ownerUid')).docs) await deleteDoc(d.ref);
+  for (const d of (await mine('tickets', 'uid')).docs) await deleteDoc(d.ref);
   await deleteDoc(doc(db, 'users', uid));
+}
+
+// ---- Support tickets ----
+function mapTicket(d) {
+  const data = d.data();
+  return {
+    ...data,
+    id: d.id,
+    createdMs: data.createdAt?.toMillis?.() ?? Date.now(),
+    updatedMs: data.updatedAt?.toMillis?.() ?? Date.now(),
+  };
+}
+
+// A customer opens a ticket. Throws on failure so the form can say so.
+export async function createTicketRemote({ uid, category, message, userName, userEmail, bookingLabel }) {
+  const first = { from: 'customer', text: message, ts: Date.now() };
+  const base = { uid, category, userName, userEmail, bookingLabel: bookingLabel || '', status: 'open', customerSeen: true, messages: [first] };
+  if (useMemory) {
+    const id = `t${Date.now()}`;
+    mem.tickets.set(id, { ...base, id, createdMs: Date.now(), updatedMs: Date.now() });
+    notifyTickets();
+    return id;
+  }
+  const ref = doc(collection(db, 'tickets'));
+  await setDoc(ref, { ...base, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  return ref.id;
+}
+
+// Adds a message. `from` is 'customer' (reopens the ticket) or 'admin' (marks it answered).
+export async function replyTicket(id, from, text) {
+  const message = { from, text, ts: Date.now() };
+  const status = from === 'admin' ? 'answered' : 'open';
+  if (useMemory) {
+    const t = mem.tickets.get(id);
+    if (!t) return;
+    mem.tickets.set(id, { ...t, status, customerSeen: from === 'customer', messages: [...t.messages, message], updatedMs: Date.now() });
+    notifyTickets();
+    return;
+  }
+  await updateDoc(doc(db, 'tickets', id), {
+    messages: arrayUnion(message),
+    status,
+    customerSeen: from === 'customer',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Admin: close or reopen.
+export async function setTicketStatus(id, status) {
+  if (useMemory) {
+    const t = mem.tickets.get(id);
+    if (t) {
+      mem.tickets.set(id, { ...t, status, updatedMs: Date.now() });
+      notifyTickets();
+    }
+    return;
+  }
+  await updateDoc(doc(db, 'tickets', id), { status, updatedAt: serverTimestamp() });
+}
+
+// Customer opened an answered ticket, so the "new reply" dot can go away.
+export async function markTicketSeen(id) {
+  if (useMemory) {
+    const t = mem.tickets.get(id);
+    if (t) {
+      mem.tickets.set(id, { ...t, customerSeen: true });
+      notifyTickets();
+    }
+    return;
+  }
+  await updateDoc(doc(db, 'tickets', id), { customerSeen: true });
+}
+
+export async function deleteTicket(id) {
+  if (useMemory) {
+    mem.tickets.delete(id);
+    notifyTickets();
+    return;
+  }
+  await deleteDoc(doc(db, 'tickets', id));
+}
+
+// Follows this person's tickets live, so your replies appear in their app.
+export function subscribeMyTickets(uid, callback) {
+  if (useMemory) {
+    const listener = { uid, cb: callback };
+    ticketListeners.add(listener);
+    callback(ticketsFor(uid));
+    return () => ticketListeners.delete(listener);
+  }
+  return onSnapshot(
+    query(collection(db, 'tickets'), where('uid', '==', uid)),
+    (snap) => callback(snap.docs.map(mapTicket)),
+    () => callback([]),
+  );
+}
+
+// Admin: every ticket, newest activity first.
+export async function listTickets() {
+  if (useMemory) return Array.from(mem.tickets.values()).sort((a, b) => b.updatedMs - a.updatedMs);
+  const snap = await getDocs(query(collection(db, 'tickets'), orderBy('updatedAt', 'desc')));
+  return snap.docs.map(mapTicket);
 }

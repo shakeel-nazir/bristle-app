@@ -21,6 +21,9 @@ import AccountScreen from './src/screens/AccountScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeDetailsScreen from './src/screens/HomeDetailsScreen';
 import PastJobsScreen from './src/screens/PastJobsScreen';
+import SupportScreen from './src/screens/SupportScreen';
+import TicketScreen from './src/screens/TicketScreen';
+import { TicketProvider } from './src/context/TicketContext';
 import { BookingProvider } from './src/context/BookingContext';
 import { ApplicationProvider } from './src/context/ApplicationContext';
 import { AuthProvider, authRequired, useAuth } from './src/context/AuthContext';
@@ -40,6 +43,7 @@ function Root() {
   return (
     <BookingProvider key={user?.uid || 'local'}>
         <ApplicationProvider>
+        <TicketProvider>
           <NavigationContainer>
             <Stack.Navigator
               screenOptions={{
@@ -71,8 +75,11 @@ function Root() {
               <Stack.Screen name="Account" component={AccountScreen} />
               <Stack.Screen name="HomeDetails" component={HomeDetailsScreen} />
               <Stack.Screen name="PastJobs" component={PastJobsScreen} />
+              <Stack.Screen name="Support" component={SupportScreen} />
+              <Stack.Screen name="Ticket" component={TicketScreen} />
             </Stack.Navigator>
           </NavigationContainer>
+        </TicketProvider>
         </ApplicationProvider>
     </BookingProvider>
   );
