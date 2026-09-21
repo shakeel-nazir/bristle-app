@@ -617,3 +617,33 @@ export const watchTickets = (cb, onError) =>
     cb,
     onError,
   );
+
+// Admin: make sure every approved cleaner's working hours are published for booking, and that
+// nobody else's are. Cleaners approved before availability existed (or whose publish failed) get
+// fixed here. Returns how many records were changed.
+export async function syncCleanerAvailability(applications) {
+  if (useMemory) return 0;
+  const existing = new Map((await getDocs(collection(db, 'cleanerAvailability'))).docs.map((d) => [d.id, d.data()]));
+  const same = (a, b) =>
+    JSON.stringify([...(a || [])].sort()) === JSON.stringify([...(b || [])].sort());
+  const batch = writeBatch(db);
+  let changes = 0;
+  const approved = new Set();
+  for (const a of applications) {
+    if (a.status !== 'approved') continue;
+    approved.add(a.id);
+    const have = existing.get(a.id);
+    if (!have || !same(have.days, a.days) || !same(have.timeBlocks, a.timeBlocks)) {
+      batch.set(availabilityRef(a.id), { days: a.days || [], timeBlocks: a.timeBlocks || [] });
+      changes += 1;
+    }
+  }
+  for (const id of existing.keys()) {
+    if (!approved.has(id)) {
+      batch.delete(availabilityRef(id));
+      changes += 1;
+    }
+  }
+  if (changes) await batch.commit();
+  return changes;
+}

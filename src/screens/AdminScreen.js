@@ -19,6 +19,7 @@ import {
   liveApplications,
   liveBookings,
   liveTickets,
+  syncAvailability,
   isFirebaseConfigured,
   setApplicationStatus,
   removeApplication,
@@ -54,6 +55,7 @@ export default function AdminScreen({ navigation }) {
   const [bookings, setBookings] = useState([]);
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [appsReady, setAppsReady] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null); // booking being edited
   const [messaging, setMessaging] = useState(null); // booking whose customer we're messaging
@@ -78,11 +80,29 @@ export default function AdminScreen({ navigation }) {
     };
     const stops = [
       liveBookings(arrived(setBookings), failed),
-      liveApplications(arrived(setApplications), failed),
+      liveApplications((rows) => {
+        setAppsReady(true);
+        arrived(setApplications)(rows);
+      }, failed),
       liveTickets(arrived(setTickets), failed),
     ];
-    return () => stops.forEach((stop) => stop());
+    return () => {
+      setAppsReady(false);
+      stops.forEach((stop) => stop());
+    };
   }, [user]);
+
+  // Keep the public "which times are open" records matching the approved cleaners.
+  const availabilitySig = applications
+    .filter((a) => a.status === 'approved')
+    .map((a) => `${a.id}:${(a.days || []).join('')}:${(a.timeBlocks || []).join('')}`)
+    .sort()
+    .join('|');
+  useEffect(() => {
+    if (!user || !appsReady) return;
+    syncAvailability(applications).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, appsReady, availabilitySig]);
 
   const changeStatus = async (id, status) => {
     setLoadError('');

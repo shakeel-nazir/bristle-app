@@ -15,6 +15,7 @@ import {
   listBookings,
   updateApplicationStatus,
   updateBookingDetails,
+  syncCleanerAvailability,
   updateBookingStatus,
   watchApplications,
   watchBookings,
@@ -28,6 +29,7 @@ export const setApplicationStatus = updateApplicationStatus;
 export const setBookingStatus = updateBookingStatus;
 export const setBookingCleaner = assignBookingCleaner;
 export const fetchTickets = listTickets;
+export const syncAvailability = syncCleanerAvailability;
 export const liveBookings = watchBookings;
 export const liveApplications = watchApplications;
 export const liveTickets = watchTickets;
