@@ -36,7 +36,7 @@ export function cleanerStats(cleaner, bookings, now = new Date()) {
   const bookedHours = inNextWeek.reduce((sum, b) => sum + hoursOf(b), 0);
   const freePercent = capacity > 0 ? Math.max(0, Math.round(100 - (bookedHours / capacity) * 100)) : 0;
 
-  const enRoute = active.find((b) => b.status === 'on_the_way') || null;
+  const enRoute = active.find((b) => b.status === 'on_the_way' || b.status === 'in_progress') || null;
   return {
     completed: done.length,
     completedHours: done.reduce((sum, b) => sum + hoursOf(b), 0),
@@ -46,6 +46,6 @@ export function cleanerStats(cleaner, bookings, now = new Date()) {
     freePercent,
     enRoute,
     next: enRoute ? null : active[0] || null,
-    state: enRoute ? 'en_route' : active.length ? 'booked' : 'free',
+    state: enRoute ? (enRoute.status === 'in_progress' ? 'working' : 'en_route') : active.length ? 'booked' : 'free',
   };
 }

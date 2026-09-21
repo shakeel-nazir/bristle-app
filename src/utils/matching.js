@@ -16,7 +16,7 @@ const DAY_PLURAL = {
 };
 
 export function isActiveJob(b) {
-  return !b.status || b.status === 'active' || b.status === 'on_the_way';
+  return !b.status || b.status === 'active' || b.status === 'on_the_way' || b.status === 'in_progress';
 }
 
 // Reads a booking's weekday ("Sat"), start hour (9 for "9:00 AM") and length in hours.

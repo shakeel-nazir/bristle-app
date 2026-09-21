@@ -280,7 +280,7 @@ export default function AdminScreen({ navigation }) {
     }
   };
 
-  const isUpcoming = (b) => b.status === 'active' || b.status === 'on_the_way' || !b.status;
+  const isUpcoming = (b) => b.status === 'active' || b.status === 'on_the_way' || b.status === 'in_progress' || !b.status;
   const upcoming = bookings.filter(isUpcoming);
   const past = bookings.filter((b) => !isUpcoming(b));
   const cleaners = applications.filter((a) => a.status === 'approved');
@@ -516,6 +516,8 @@ function Line({ label, value }) {
 function BookingCard({ b, onChange, onAssign, onEdit, onMessage, onDelete }) {
   const scheduled = b.status === 'active' || !b.status;
   const enRoute = b.status === 'on_the_way';
+  const working = b.status === 'in_progress';
+  const live = scheduled || enRoute || working; // still an open job
   return (
     <GlassCard style={styles.card} intensity={45}>
       <View style={styles.cardInner}>
@@ -527,7 +529,10 @@ function BookingCard({ b, onChange, onAssign, onEdit, onMessage, onDelete }) {
         <Line label="Address" value={b.address} />
         <Line label="Home" value={describeHome(b.home)} />
         <Line label="Pet notes" value={b.home?.petNotes} />
-        <Line label="Cleaner" value={b.cleanerName || (b.status === 'active' || b.status === 'on_the_way' || !b.status ? 'Not assigned' : '')} />
+        <Line label="Cleaner" value={b.cleanerName || (live ? 'Not assigned' : '')} />
+        {working && b.startedMs ? (
+          <Line label="Timer started" value={new Date(b.startedMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} />
+        ) : null}
         <Line label="Note to customer" value={b.adminNote} />
         <Line label="Tasks" value={b.service?.tasks?.map((t) => t.label).join(', ')} />
         <Line label="Total" value={money(b.total)} />
@@ -543,12 +548,25 @@ function BookingCard({ b, onChange, onAssign, onEdit, onMessage, onDelete }) {
           {scheduled || enRoute ? (
             <AnimatedPressable
               style={enRoute ? styles.advanceButton : styles.secondaryButton}
-              onPress={() => onChange(b.id, 'completed')}
+              onPress={() => onChange(b.id, 'in_progress')}
             >
-              <Text style={enRoute ? styles.advanceText : styles.secondaryText}>Mark completed</Text>
+              <Text style={enRoute ? styles.advanceText : styles.secondaryText}>Cleaner arrived · start timer</Text>
             </AnimatedPressable>
           ) : null}
-          {(scheduled || enRoute) && b.uid ? (
+          {working ? (
+            <AnimatedPressable style={styles.secondaryButton} onPress={() => onChange(b.id, 'on_the_way')}>
+              <Text style={styles.secondaryText}>Stop timer</Text>
+            </AnimatedPressable>
+          ) : null}
+          {live ? (
+            <AnimatedPressable
+              style={working ? styles.advanceButton : styles.secondaryButton}
+              onPress={() => onChange(b.id, 'completed')}
+            >
+              <Text style={working ? styles.advanceText : styles.secondaryText}>Mark completed</Text>
+            </AnimatedPressable>
+          ) : null}
+          {live && b.uid ? (
             <AnimatedPressable style={styles.secondaryButton} onPress={onMessage}>
               <Text style={styles.secondaryText}>Message</Text>
             </AnimatedPressable>
@@ -656,12 +674,12 @@ function Stat({ value, label }) {
   );
 }
 
-const STATE_LABEL = { en_route: 'En route', booked: 'Booked', free: 'Free' };
+const STATE_LABEL = { working: 'Cleaning', en_route: 'En route', booked: 'Booked', free: 'Free' };
 
 function CleanerCard({ c, bookings, onEdit }) {
   const st = cleanerStats(c, bookings);
   const where = st.enRoute
-    ? `On the way to ${st.enRoute.address}`
+    ? `${st.enRoute.status === 'in_progress' ? 'Cleaning at' : 'On the way to'} ${st.enRoute.address}`
     : st.next
       ? `Next: ${st.next.date} · ${st.next.time} — ${st.next.address}`
       : 'No upcoming jobs';

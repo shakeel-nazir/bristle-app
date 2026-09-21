@@ -14,7 +14,7 @@ const BookingContext = createContext(null);
 
 export const MAX_BOOKINGS = 2;
 
-const UPCOMING = ['active', 'on_the_way'];
+const UPCOMING = ['active', 'on_the_way', 'in_progress'];
 
 export function BookingProvider({ children }) {
   const { user, home } = useAuth();

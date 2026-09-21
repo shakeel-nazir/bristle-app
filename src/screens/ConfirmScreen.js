@@ -90,7 +90,7 @@ export default function ConfirmScreen({ route, navigation }) {
         </View>
 
         <Text style={styles.title}>
-          {!viewOnly ? 'Confirm booking' : canModify || status === 'on_the_way' ? 'Your booking' : 'Past job'}
+          {!viewOnly ? 'Confirm booking' : canModify || status === 'on_the_way' || status === 'in_progress' ? 'Your booking' : 'Past job'}
         </Text>
         {viewOnly && params.adminNote ? (
           <View style={[styles.statusBanner, styles.statusNeutral]}>
@@ -101,13 +101,15 @@ export default function ConfirmScreen({ route, navigation }) {
           <View
             style={[
               styles.statusBanner,
-              status === 'on_the_way' ? styles.statusGood : status === 'cancelled' ? styles.statusBad : styles.statusNeutral,
+              status === 'on_the_way' || status === 'in_progress' ? styles.statusGood : status === 'cancelled' ? styles.statusBad : styles.statusNeutral,
             ]}
           >
             <Text style={styles.statusBannerText}>
               {status === 'on_the_way'
                 ? 'Your cleaner is on the way!'
-                : status === 'completed'
+                : status === 'in_progress'
+                  ? 'Your clean is underway'
+                  : status === 'completed'
                   ? 'Completed'
                   : 'Cancelled'}
             </Text>

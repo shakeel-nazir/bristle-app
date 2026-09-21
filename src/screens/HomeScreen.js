@@ -11,6 +11,7 @@ import GlassCard from '../components/GlassCard';
 import ConfirmModal from '../components/ConfirmModal';
 import AnimatedPressable from '../components/AnimatedPressable';
 import DiscountSticker from '../components/DiscountSticker';
+import CleaningTimerCard from '../components/CleaningTimerCard';
 import { buildGoogleCalendarUrl } from '../utils/calendar';
 import { getApplicationView } from '../utils/applicationStatus';
 
@@ -174,7 +175,9 @@ export default function HomeScreen({ navigation }) {
 
         {upcomingBookings.length > 0 ? (
           upcomingBookings.map((booking) => (
-            <GlassCard key={booking.id} style={styles.upcomingCard} intensity={45}>
+            <React.Fragment key={booking.id}>
+            {booking.status === 'in_progress' && booking.startedMs ? <CleaningTimerCard booking={booking} /> : null}
+            <GlassCard style={styles.upcomingCard} intensity={45}>
               <View style={styles.upcomingInner}>
                 <View style={styles.upcomingHeaderRow}>
                   <View style={styles.upcomingIcon}>
@@ -213,6 +216,7 @@ export default function HomeScreen({ navigation }) {
                 </View>
               </View>
             </GlassCard>
+            </React.Fragment>
           ))
         ) : null}
 

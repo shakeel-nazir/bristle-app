@@ -15,6 +15,7 @@ export const STATUS_LABELS = {
   cancelled: 'Cancelled',
   active: 'Scheduled',
   on_the_way: 'On the way',
+  in_progress: 'In progress',
   completed: 'Completed',
 };
 

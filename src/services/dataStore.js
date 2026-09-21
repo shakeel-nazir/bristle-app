@@ -143,16 +143,21 @@ export function markBookingCancelledRemote(id) {
   });
 }
 
-// Admin action (e.g. 'on_the_way', 'completed'). Throws on failure so the admin page can tell you.
+// Admin action (e.g. 'on_the_way', 'in_progress', 'completed'). Throws on failure so the admin page can tell you.
 export async function updateBookingStatus(id, status) {
+  // 'in_progress' starts the clean timer. startedMs is the admin's clock; the customer's screen
+  // counts from it. Going back to 'on_the_way' stops (clears) the timer.
+  const timer =
+    status === 'in_progress' ? { startedMs: Date.now() } : status === 'on_the_way' ? { startedMs: null } : {};
   if (useMemory) {
-    memPatch('bookings', id, { status });
+    memPatch('bookings', id, { status, ...timer });
     return;
   }
-  const stamp = { on_the_way: 'onTheWayAt', completed: 'completedAt' }[status];
+  const stamp = { on_the_way: 'onTheWayAt', in_progress: 'startedAt', completed: 'completedAt' }[status];
   const batch = writeBatch(db);
   batch.update(doc(collection(db, 'bookings'), id), {
     status,
+    ...timer,
     ...(stamp ? { [stamp]: serverTimestamp() } : {}),
   });
   if (!isActiveJob({ status })) batch.set(busyRef(id), { active: false }, { merge: true });
