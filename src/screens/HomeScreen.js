@@ -174,10 +174,12 @@ export default function HomeScreen({ navigation }) {
         ) : null}
 
         {upcomingBookings.length > 0 ? (
-          upcomingBookings.map((booking) => (
-            <React.Fragment key={booking.id}>
-            {booking.status === 'in_progress' && booking.startedMs ? <CleaningTimerCard booking={booking} /> : null}
-            <GlassCard style={styles.upcomingCard} intensity={45}>
+          upcomingBookings.map((booking) =>
+            // While the clean is underway, the timer takes the place of the booking card.
+            booking.status === 'in_progress' && booking.startedMs ? (
+              <CleaningTimerCard key={booking.id} booking={booking} onViewBooking={() => handleViewBooking(booking)} />
+            ) : (
+            <GlassCard key={booking.id} style={styles.upcomingCard} intensity={45}>
               <View style={styles.upcomingInner}>
                 <View style={styles.upcomingHeaderRow}>
                   <View style={styles.upcomingIcon}>
@@ -216,8 +218,8 @@ export default function HomeScreen({ navigation }) {
                 </View>
               </View>
             </GlassCard>
-            </React.Fragment>
-          ))
+            ),
+          )
         ) : null}
 
         {application && (

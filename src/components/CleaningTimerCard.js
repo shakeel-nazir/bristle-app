@@ -4,6 +4,7 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from './GlassCard';
+import AnimatedPressable from './AnimatedPressable';
 import { timerState, formatClock, formatLeft } from '../utils/cleanTimer';
 
 const SIZE = 136;
@@ -49,7 +50,7 @@ function PulsingDot() {
 
 // The big "your clean is underway" card on Home: overall ring, the task being done right now with
 // its own countdown, and a checklist that fills in as each task finishes.
-export default function CleaningTimerCard({ booking }) {
+export default function CleaningTimerCard({ booking, onViewBooking }) {
   const now = useNow();
   const t = timerState(booking, now);
   const current = t.tasks[t.currentIndex];
@@ -158,6 +159,14 @@ export default function CleaningTimerCard({ booking }) {
             </View>
           ))}
         </View>
+
+        {onViewBooking ? (
+          <View style={styles.footer}>
+            <AnimatedPressable style={styles.viewButton} onPress={onViewBooking}>
+              <Text style={styles.viewButtonText}>View Booking</Text>
+            </AnimatedPressable>
+          </View>
+        ) : null}
       </View>
     </GlassCard>
   );
@@ -203,5 +212,8 @@ const styles = StyleSheet.create({
   rowLabelDone: { color: colors.textSecondary, textDecorationLine: 'line-through', opacity: 0.7 },
   rowLabelCurrent: { color: colors.text, fontWeight: '700' },
   rowTime: { fontSize: 12, color: colors.textSecondary, fontVariant: ['tabular-nums'] },
+  footer: { alignItems: 'flex-end', marginTop: spacing.md },
+  viewButton: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 18 },
+  viewButtonText: { color: colors.background, fontSize: 14, fontWeight: '700' },
   rowTimeCurrent: { color: colors.accent, fontWeight: '700' },
 });
