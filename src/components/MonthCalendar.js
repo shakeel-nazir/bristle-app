@@ -122,7 +122,8 @@ export default function MonthCalendar({ selectedDate, onSelectDate, isDateAvaila
   );
 }
 
-const CELL_SIZE = 40;
+// Seven equal columns, however wide the calendar is, so a week is always one row.
+const CELL_WIDTH = `${100 / 7}%`;
 
 const styles = StyleSheet.create({
   card: {
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   weekdayLabel: {
-    width: CELL_SIZE,
+    width: CELL_WIDTH,
     textAlign: 'center',
     fontSize: 11,
     fontWeight: '600',
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   cell: {
-    width: CELL_SIZE,
+    width: CELL_WIDTH,
     alignItems: 'center',
     paddingVertical: 4,
   },
