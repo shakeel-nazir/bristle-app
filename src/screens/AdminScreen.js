@@ -177,6 +177,10 @@ export default function AdminScreen({ navigation }) {
     try {
       await changeTicketStatus(id, status);
       setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+      // The ticket just moved between the Support and Closed tabs, so say where it went.
+      if (status === 'closed') setNotice('Ticket closed. You can find it under Closed.');
+      else if (tab === 'closed') setNotice('Ticket reopened. It’s back under Support.');
+      if (status === 'closed' || tab === 'closed') setTimeout(() => setNotice(''), 4000);
     } catch (e) {
       setLoadError("Couldn't update that ticket. Check your admin rules and try again.");
     }
@@ -288,6 +292,8 @@ export default function AdminScreen({ navigation }) {
   const pipeline = applications.filter((a) => ['under_review', 'interview', 'background_check'].includes(a.status));
   const needsCleaner = upcoming.filter((b) => !b.cleanerId).length;
   const openTickets = tickets.filter((t) => t.status === 'open').length;
+  const openTicketList = tickets.filter((t) => t.status !== 'closed');
+  const closedTicketList = tickets.filter((t) => t.status === 'closed');
   const sortedTickets = [...tickets].sort(
     (a, b) => ['open', 'answered', 'closed'].indexOf(a.status) - ['open', 'answered', 'closed'].indexOf(b.status) || b.updatedMs - a.updatedMs,
   );
@@ -301,7 +307,8 @@ export default function AdminScreen({ navigation }) {
     customers: [
       ['upcoming', `Upcoming (${upcoming.length})`],
       ['past', `Past (${past.length})`],
-      ['support', `Support (${tickets.length})`, openTickets],
+      ['support', `Support (${openTicketList.length})`, openTickets],
+      ['closed', `Closed (${closedTicketList.length})`],
     ],
     cleaners: [
       ['roster', `Roster (${cleaners.length})`],
@@ -317,7 +324,7 @@ export default function AdminScreen({ navigation }) {
       ? `${upcoming.length} upcoming · ${needsCleaner} need a cleaner · ${openTickets} open ticket${openTickets === 1 ? '' : 's'}`
       : `${cleaners.length} approved · ${pipeline.length} application${pipeline.length === 1 ? '' : 's'} in progress`;
   const items =
-    tab === 'upcoming' ? upcoming : tab === 'past' ? past : tab === 'support' ? tickets : tab === 'roster' ? cleaners : applications;
+    tab === 'upcoming' ? upcoming : tab === 'past' ? past : tab === 'support' ? openTicketList : tab === 'closed' ? closedTicketList : tab === 'roster' ? cleaners : applications;
 
   return (
     <View style={styles.container}>
@@ -423,11 +430,13 @@ export default function AdminScreen({ navigation }) {
               <Text style={syncStatus.ok ? styles.notice : styles.error}>{syncStatus.text}</Text>
             ) : null}
             {!loading && !loadError && items.length === 0 ? (
-              <Text style={styles.muted}>Nothing here yet.</Text>
+              <Text style={styles.muted}>
+                {tab === 'support' ? 'No open tickets. 🎉' : tab === 'closed' ? 'No closed tickets yet.' : 'Nothing here yet.'}
+              </Text>
             ) : null}
 
-            {tab === 'support'
-              ? sortedTickets.map((t) => (
+            {tab === 'support' || tab === 'closed'
+              ? sortedTickets.filter((t) => (tab === 'closed') === (t.status === 'closed')).map((t) => (
                   <TicketCard
                     key={t.id}
                     t={t}
