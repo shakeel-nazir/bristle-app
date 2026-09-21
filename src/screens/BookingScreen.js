@@ -34,7 +34,9 @@ export default function BookingScreen({ route, navigation }) {
     };
   }, []);
 
-  const enforced = !!supply?.enforced;
+  // Only hide times once cleaners have published hours; until then every day (except Sunday) is open
+  // and you assign a cleaner from the admin panel.
+  const enforced = !!supply?.enforced && supply.cleaners.length > 0;
   const timesFor = (date) => (enforced ? openTimesFor(formatDate(date), service, supply, timeSlots) : timeSlots);
   // No Sundays, and (once loaded) no days where nobody could take the job.
   const isDateAvailable = (date) => date.getDay() !== 0 && (!enforced || timesFor(date).length > 0);
@@ -135,9 +137,7 @@ export default function BookingScreen({ route, navigation }) {
               <Text style={styles.timesEmpty}>
                 {supply === null
                   ? 'Checking which cleaners are free…'
-                  : enforced && !supply.cleaners.length
-                    ? 'We’re getting our cleaners set up — booking opens very soon.'
-                    : 'Pick a date to see open slots'}
+                  : 'Pick a date to see open slots'}
               </Text>
             )}
           </View>
