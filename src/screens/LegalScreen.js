@@ -4,33 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from '../components/GlassCard';
-
-const sections = [
-  {
-    title: 'Terms of Service',
-    body:
-      'By booking a clean through Bristle, you agree to provide accurate address and access details, ' +
-      'be available (or arrange access) for the scheduled window, and pay the remaining balance once the ' +
-      'clean is complete. A 50% deposit is charged at booking; cancellations affect deposit refunds per our policy.',
-  },
-  {
-    title: 'Privacy Policy',
-    body:
-      'We collect only what is needed to schedule and deliver your clean: your name, address, and booking ' +
-      'details. We do not sell your information. Address lookups are powered by OpenStreetMap/Nominatim and ' +
-      'are not stored beyond your booking record.',
-  },
-  {
-    title: 'Cancellation Policy',
-    body:
-      'You can cancel a scheduled clean any time from the home screen. Deposits secure your cleaner\'s time ' +
-      'and are non-refundable within 24 hours of the appointment.',
-  },
-  {
-    title: 'Service Area',
-    body: 'Bristle currently operates in Ottawa, Ontario only. HST (13%) applies to all bookings.',
-  },
-];
+import { LEGAL_SECTIONS } from '../utils/legal';
 
 export default function LegalScreen({ navigation }) {
   return (
@@ -51,7 +25,7 @@ export default function LegalScreen({ navigation }) {
 
         <Text style={styles.title}>Legal</Text>
 
-        {sections.map((section) => (
+        {LEGAL_SECTIONS.map((section) => (
           <GlassCard key={section.title} style={styles.card} intensity={45}>
             <View style={styles.cardInner}>
               <Text style={styles.sectionTitle}>{section.title}</Text>

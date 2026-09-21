@@ -57,11 +57,11 @@ export default function BookingScreen({ route, navigation }) {
       return;
     }
     if (!address.trim()) {
-      setError('Enter your Ottawa address');
+      setError('Enter your address');
       return;
     }
     if (!addressValid) {
-      setError('Select an Ottawa address from the suggestions list to continue');
+      setError('Select an address from the suggestions list to continue');
       return;
     }
     setError('');
@@ -143,9 +143,9 @@ export default function BookingScreen({ route, navigation }) {
           </View>
         </GlassCard>
 
-        <Text style={styles.sectionLabel}>Address (Ottawa only)</Text>
+        <Text style={styles.sectionLabel}>Address (Ottawa, Gatineau & area)</Text>
         <AddressAutocomplete
-          placeholder="Start typing your Ottawa address"
+          placeholder="Start typing your address"
           value={address}
           onChangeText={(text) => {
             setAddress(text);

@@ -11,8 +11,36 @@ const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const DEBOUNCE_MS = 400;
 const MIN_QUERY_LENGTH = 3;
 
-// Ottawa's city boundary, roughly (minLon,minLat,maxLon,maxLat).
-const OTTAWA_BBOX = '-76.3556,44.9617,-75.2465,45.5376';
+// The region we search: Ottawa and its surroundings, Gatineau, Rockland and the rural south.
+// (minLon, minLat, maxLon, maxLat). What is actually accepted is decided by SERVICE_CITIES below.
+const REGION = { minLon: -76.45, minLat: 44.85, maxLon: -75.05, maxLat: 45.7 };
+const PHOTON_BBOX = `${REGION.minLon},${REGION.minLat},${REGION.maxLon},${REGION.maxLat}`;
+const NOMINATIM_VIEWBOX = `${REGION.minLon},${REGION.maxLat},${REGION.maxLon},${REGION.minLat}`;
+
+// Where we clean, by the city name the map uses -> the name shown on the address.
+const SERVICE_CITIES = {
+  ottawa: 'Ottawa', // includes Orleans, Kanata, Barrhaven, Cumberland and the rural south
+  gatineau: 'Gatineau', // the Quebec side (Hull, Aylmer, Buckingham…)
+  rockland: 'Rockland',
+  'clarence-rockland': 'Rockland',
+};
+
+// Communities inside the City of Ottawa that people write on their mail instead of "Ottawa".
+const OTTAWA_COMMUNITIES = {
+  orleans: 'Orleans',
+  kanata: 'Kanata',
+  barrhaven: 'Barrhaven',
+  cumberland: 'Cumberland',
+  manotick: 'Manotick',
+  greely: 'Greely',
+  osgoode: 'Osgoode',
+  metcalfe: 'Metcalfe',
+  stittsville: 'Stittsville',
+  richmond: 'Richmond',
+  carp: 'Carp',
+};
+
+const PROVINCE_ABBR = { ontario: 'ON', quebec: 'QC' };
 
 const STREET_SUFFIX_ABBR = {
   street: 'St',
@@ -85,10 +113,60 @@ function abbreviateStreet(road) {
   return words.join(' ');
 }
 
+// Town names people tack on the end ("1500 Laurier St Rockland"). Not part of the street name.
+const PLACE_WORDS = new Set([
+  ...Object.keys(SERVICE_CITIES).flatMap((c) => c.split('-')),
+  ...Object.keys(OTTAWA_COMMUNITIES),
+  'clarence',
+  // sectors people name instead of the city
+  'aylmer',
+  'hull',
+  'buckingham',
+  'masson',
+  'angers',
+  'nepean',
+  'gloucester',
+  'vanier',
+  'ontario',
+  'quebec',
+  'on',
+  'qc',
+]);
+
 // "48 elgin" -> { number: '48', street: 'elgin' }. Addresses in Canada read number first, then street.
 function parseTyped(text) {
   const m = /^\s*(\d+[A-Za-z]?)\s+(.+?)\s*$/.exec(text || '');
-  return m ? { number: m[1], street: m[2] } : { number: '', street: (text || '').trim() };
+  const number = m ? m[1] : '';
+  const words = (m ? m[2] : (text || '').trim()).split(/[\s,]+/).filter(Boolean);
+  // Drop trailing town names, but never everything ("100 Richmond" is the street Richmond).
+  while (words.length > 1 && PLACE_WORDS.has(words[words.length - 1].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
+    words.pop();
+  }
+  return { number, street: words.join(' ') };
+}
+
+const fold = (text) =>
+  String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+
+// Is this place in our service area? Returns the community to write on the address and the
+// province, or null if we don't clean there.
+function placeFor({ city, district, locality, state }) {
+  const base = SERVICE_CITIES[fold(city)];
+  if (!base) return null;
+  let community = base;
+  if (base === 'Ottawa') {
+    const hit = [district, locality]
+      .map(fold)
+      .map((name) => Object.keys(OTTAWA_COMMUNITIES).find((key) => name.startsWith(key)))
+      .find(Boolean);
+    if (hit) community = OTTAWA_COMMUNITIES[hit];
+  }
+  const province = PROVINCE_ABBR[fold(state)] || (base === 'Gatineau' ? 'QC' : 'ON');
+  return { community, province };
 }
 
 const plain = (text) =>
@@ -117,27 +195,43 @@ function streetMatches(typedStreet, road) {
 }
 
 // One clean shape for every suggestion, however it was found.
-function makeAddress({ number, road, district, postcode, approximate }) {
+function makeAddress({ number, road, district, locality, place, postcode, approximate }) {
+  const { community, province } = place;
   const streetLine = `${number} ${abbreviateStreet(road)}`;
-  const area = [district && district !== 'Ottawa' ? district : '', 'Ottawa'].filter(Boolean).join(', ');
-  const province = ['ON', postcode].filter(Boolean).join(' ');
+  // A small grey neighbourhood hint: "Centretown" for Ottawa itself, "Bridlewood" inside Kanata, etc.
+  const neighbourhood =
+    community === 'Ottawa'
+      ? district
+      : locality && fold(locality) !== fold(community) && !fold(locality).startsWith(fold(community))
+        ? locality
+        : '';
+  const region = [province, postcode].filter(Boolean).join(' ');
   return {
     key: `${number}|${road}|${postcode || ''}`.toLowerCase(),
     road,
     streetLine,
-    areaLine: `${area}, ${province}`,
+    areaLine: [neighbourhood && neighbourhood !== community ? neighbourhood : '', community, region]
+      .filter(Boolean)
+      .join(', '),
     // Mailing style: "123 Bank St, Ottawa, ON K1P 5N5"
-    full: `${streetLine}, Ottawa, ${province}`,
+    full: `${streetLine}, ${community}, ${region}`,
     approximate: !!approximate,
   };
 }
 
 function fromPhoton(feature) {
   const p = feature.properties || {};
-  const isOttawa = (p.city || p.county || '').toLowerCase() === 'ottawa';
+  const place = placeFor(p);
   const isHome = !NON_HOME_KEYS.has(p.osm_key);
-  if (!isOttawa || !isHome || !p.housenumber || !p.street) return null;
-  return makeAddress({ number: p.housenumber, road: p.street, district: p.district, postcode: p.postcode });
+  if (!place || !isHome || !p.housenumber || !p.street) return null;
+  return makeAddress({
+    number: p.housenumber,
+    road: p.street,
+    district: p.district,
+    locality: p.locality,
+    place,
+    postcode: p.postcode,
+  });
 }
 
 // The map knows the street but not this house number: offer the address as typed.
@@ -146,32 +240,27 @@ async function streetFallback(typed, signal) {
   const params = new URLSearchParams({
     format: 'json',
     street: `${typed.number} ${typed.street}`,
-    city: 'Ottawa',
-    state: 'Ontario',
-    country: 'Canada',
+    countrycodes: 'ca',
+    viewbox: NOMINATIM_VIEWBOX,
+    bounded: '1',
     addressdetails: '1',
-    limit: '5',
+    limit: '10',
   });
   const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, { signal, headers: { Accept: 'application/json' } });
   const rows = await response.json();
-  const road = rows.find(
-    (r) =>
-      r.address?.road &&
-      (r.address.city || '').toLowerCase() === 'ottawa' &&
-      streetMatches(typed.street, r.address.road),
-  );
-  if (!road) return null;
-  return makeAddress({
-    number: typed.number,
-    road: road.address.road,
-    district: road.address.suburb,
-    approximate: true,
-  });
+  for (const r of rows) {
+    const a = r.address || {};
+    const place = placeFor({ city: a.city || a.town, district: a.suburb, state: a.state });
+    if (a.road && place && streetMatches(typed.street, a.road)) {
+      return makeAddress({ number: typed.number, road: a.road, district: a.suburb, place, approximate: true });
+    }
+  }
+  return null;
 }
 
 async function searchAddresses(text, signal) {
   const typed = parseTyped(text);
-  const params = new URLSearchParams({ q: text, limit: '15', lang: 'en', bbox: OTTAWA_BBOX });
+  const params = new URLSearchParams({ q: text, limit: '15', lang: 'en', bbox: PHOTON_BBOX });
   const response = await fetch(`${PHOTON_URL}?${params.toString()}`, { signal, headers: { Accept: 'application/json' } });
   const data = await response.json();
 
@@ -281,7 +370,7 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
       </View>
 
       {isValid && <Text style={styles.validText}>Verified address</Text>}
-      {showUnverifiedHint && <Text style={styles.hintText}>Select an Ottawa address from the list to continue</Text>}
+      {showUnverifiedHint && <Text style={styles.hintText}>Select an address from the list to continue</Text>}
 
       {showDropdown && (
         <GlassCard style={styles.dropdown} intensity={50}>
@@ -295,7 +384,7 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
               <View style={styles.statusRow}>
                 <Text style={styles.statusText}>
                   {typedNumber
-                    ? 'No Ottawa address found. Check the street name (we only serve Ottawa).'
+                    ? 'No address found in our service area. Check the street name.'
                     : 'Start with the street number, like 123 Bank St.'}
                 </Text>
               </View>

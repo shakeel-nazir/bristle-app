@@ -14,6 +14,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from '../components/GlassCard';
 import AnimatedPressable from '../components/AnimatedPressable';
+import LegalModal from '../components/LegalModal';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
@@ -26,6 +27,8 @@ export default function LoginScreen() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [legal, setLegal] = useState(null); // null | { onAgree?: fn } when the legal step is showing
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
@@ -39,6 +42,18 @@ export default function LoginScreen() {
     if (result?.error) setError(result.error);
   };
 
+  // Anything that creates an account shows the legal text first. Only asked once per visit.
+  const requireAgreement = (proceed) => {
+    if (agreed) return proceed();
+    setLegal({
+      onAgree: () => {
+        setAgreed(true);
+        setLegal(null);
+        proceed();
+      },
+    });
+  };
+
   const submit = async () => {
     setError('');
     setNotice('');
@@ -46,8 +61,14 @@ export default function LoginScreen() {
       setError('Enter your email and password.');
       return;
     }
+    if (isSignUp) return requireAgreement(() => createAccount());
     setBusy(true);
-    finish(isSignUp ? await signUpEmail(name, email, password) : await signInEmail(email, password));
+    finish(await signInEmail(email, password));
+  };
+
+  const createAccount = async () => {
+    setBusy(true);
+    finish(await signUpEmail(name, email, password));
   };
 
   const forgot = async () => {
@@ -64,17 +85,19 @@ export default function LoginScreen() {
     else setNotice('Check your email for a link to reset your password.');
   };
 
-  const apple = async () => {
-    setError('');
-    setBusy(true);
-    finish(await signInApple());
-  };
+  const apple = () =>
+    requireAgreement(async () => {
+      setError('');
+      setBusy(true);
+      finish(await signInApple());
+    });
 
-  const guest = async () => {
-    setError('');
-    setBusy(true);
-    finish(await signInGuest());
-  };
+  const guest = () =>
+    requireAgreement(async () => {
+      setError('');
+      setBusy(true);
+      finish(await signInGuest());
+    });
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -142,6 +165,16 @@ export default function LoginScreen() {
               )}
             </AnimatedPressable>
 
+            {isSignUp ? (
+              <Text style={styles.finePrint}>
+                By creating an account you agree to our{' '}
+                <Text style={styles.finePrintLink} onPress={() => setLegal({})}>
+                  Terms of Service and Privacy Policy
+                </Text>
+                .
+              </Text>
+            ) : null}
+
             {!isSignUp ? (
               <AnimatedPressable onPress={forgot} scaleTo={0.97}>
                 <Text style={styles.link}>Forgot password?</Text>
@@ -180,6 +213,8 @@ export default function LoginScreen() {
         <Text style={styles.guestHint}>
           Guests can book cleans too. Create an account any time to keep everything in one place.
         </Text>
+
+        <LegalModal visible={!!legal} onClose={() => setLegal(null)} onAgree={legal?.onAgree} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -242,6 +277,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   guestText: { color: colors.accent, fontSize: 15, fontWeight: '600' },
+  finePrint: { fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm, lineHeight: 17 },
+  finePrintLink: { color: colors.accent, fontWeight: '600' },
   guestHint: {
     fontSize: 12,
     color: colors.textSecondary,
