@@ -8,12 +8,14 @@ import AnimatedPressable from '../components/AnimatedPressable';
 import ConfirmModal from '../components/ConfirmModal';
 import AssignCleanerModal from '../components/AssignCleanerModal';
 import EditBookingModal from '../components/EditBookingModal';
+import EditCleanerModal from '../components/EditCleanerModal';
 import MessageCustomerModal from '../components/MessageCustomerModal';
 import {
   adminSignIn,
   adminSignOut,
   answerTicket,
   editBooking,
+  editCleaner,
   messageCustomer,
   changeTicketStatus,
   liveApplications,
@@ -59,6 +61,7 @@ export default function AdminScreen({ navigation }) {
   const [syncStatus, setSyncStatus] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null); // booking being edited
+  const [editingCleaner, setEditingCleaner] = useState(null); // cleaner / applicant being edited
   const [messaging, setMessaging] = useState(null); // booking whose customer we're messaging
   const [notice, setNotice] = useState('');
   const [assigning, setAssigning] = useState(null); // booking currently being matched
@@ -205,6 +208,41 @@ export default function AdminScreen({ navigation }) {
       await editBooking(booking.id, fields);
       setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, ...fields } : b)));
       setEditing(null);
+      return true;
+    } catch (e) {
+      setLoadError("Couldn't save those changes. Check your admin rules and try again.");
+      return false;
+    }
+  };
+
+  // Returns true when saved. `unassignIds` are jobs the new hours can't cover any more.
+  const saveCleanerEdit = async (fields, unassignIds) => {
+    const cleaner = editingCleaner;
+    if (!cleaner) return false;
+    setLoadError('');
+    const bookingIds = bookings.filter((b) => b.cleanerId === cleaner.id).map((b) => b.id);
+    try {
+      await editCleaner(cleaner.id, fields, {
+        approved: cleaner.status === 'approved',
+        bookingIds,
+        unassignIds,
+      });
+      setApplications((prev) => prev.map((a) => (a.id === cleaner.id ? { ...a, ...fields } : a)));
+      setBookings((prev) =>
+        prev.map((b) => {
+          if (b.cleanerId !== cleaner.id) return b;
+          return unassignIds.includes(b.id)
+            ? { ...b, cleanerId: null, cleanerName: null }
+            : { ...b, cleanerName: fields.fullName };
+        }),
+      );
+      setEditingCleaner(null);
+      setNotice(
+        unassignIds.length
+          ? `Saved. ${unassignIds.length} job${unassignIds.length === 1 ? '' : 's'} now need${unassignIds.length === 1 ? 's' : ''} a new cleaner.`
+          : 'Saved.',
+      );
+      setTimeout(() => setNotice(''), 4000);
       return true;
     } catch (e) {
       setLoadError("Couldn't save those changes. Check your admin rules and try again.");
@@ -398,9 +436,9 @@ export default function AdminScreen({ navigation }) {
                   />
                 ))
               : tab === 'roster'
-              ? cleaners.map((c) => <CleanerCard key={c.id} c={c} bookings={bookings} />)
+              ? cleaners.map((c) => <CleanerCard key={c.id} c={c} bookings={bookings} onEdit={() => setEditingCleaner(c)} />)
               : tab === 'applications'
-              ? applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} onDelete={() => setToDelete({ kind: 'application', id: a.id, label: a.fullName || 'this applicant' })} />)
+              ? applications.map((a) => <ApplicationCard key={a.id} a={a} onChange={changeStatus} onEdit={() => setEditingCleaner(a)} onDelete={() => setToDelete({ kind: 'application', id: a.id, label: a.fullName || 'this applicant' })} />)
               : items.map((b) => <BookingCard key={b.id} b={b} onChange={changeBookingStatus} onAssign={() => setAssigning(b)} onEdit={() => setEditing(b)} onMessage={() => setMessaging(b)} onDelete={() => setToDelete({ kind: 'booking', id: b.id, label: `${b.service?.name || 'this booking'} on ${b.date || ''}` })} />)}
           </>
         )}
@@ -420,6 +458,14 @@ export default function AdminScreen({ navigation }) {
         bookings={bookings}
         onClose={() => setEditing(null)}
         onSave={saveBookingEdit}
+      />
+
+      <EditCleanerModal
+        visible={!!editingCleaner}
+        cleaner={editingCleaner ? applications.find((a) => a.id === editingCleaner.id) || editingCleaner : null}
+        bookings={bookings}
+        onClose={() => setEditingCleaner(null)}
+        onSave={saveCleanerEdit}
       />
 
       <AssignCleanerModal
@@ -612,7 +658,7 @@ function Stat({ value, label }) {
 
 const STATE_LABEL = { en_route: 'En route', booked: 'Booked', free: 'Free' };
 
-function CleanerCard({ c, bookings }) {
+function CleanerCard({ c, bookings, onEdit }) {
   const st = cleanerStats(c, bookings);
   const where = st.enRoute
     ? `On the way to ${st.enRoute.address}`
@@ -659,13 +705,16 @@ function CleanerCard({ c, bookings }) {
               <Text style={styles.secondaryText}>Email</Text>
             </AnimatedPressable>
           ) : null}
+          <AnimatedPressable style={styles.secondaryButton} onPress={onEdit}>
+            <Text style={styles.secondaryText}>Edit</Text>
+          </AnimatedPressable>
         </View>
       </View>
     </GlassCard>
   );
 }
 
-function ApplicationCard({ a, onChange, onDelete }) {
+function ApplicationCard({ a, onChange, onDelete, onEdit }) {
   const next = nextStatus(a.status);
   const open = !isFinalStatus(a.status);
   return (
@@ -695,6 +744,9 @@ function ApplicationCard({ a, onChange, onDelete }) {
               <Text style={styles.declineText}>Decline</Text>
             </AnimatedPressable>
           ) : null}
+          <AnimatedPressable style={styles.secondaryButton} onPress={onEdit}>
+            <Text style={styles.secondaryText}>Edit</Text>
+          </AnimatedPressable>
           <AnimatedPressable style={styles.deleteButton} onPress={onDelete}>
             <Text style={styles.declineText}>Delete</Text>
           </AnimatedPressable>

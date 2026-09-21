@@ -16,6 +16,7 @@ import {
   updateApplicationStatus,
   updateBookingDetails,
   syncCleanerAvailability,
+  updateCleanerDetails,
   updateBookingStatus,
   watchApplications,
   watchBookings,
@@ -38,6 +39,7 @@ export const changeTicketStatus = setTicketStatus;
 export const removeTicket = deleteTicket;
 export const messageCustomer = createAdminMessage;
 export const editBooking = updateBookingDetails;
+export const editCleaner = updateCleanerDetails;
 export const removeBooking = deleteBooking;
 export const removeApplication = deleteApplication;
 

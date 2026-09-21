@@ -263,6 +263,35 @@ export async function updateBookingDetails(id, fields) {
   await batch.commit();
 }
 
+// Admin action: change a cleaner's details (name, contact, experience, days, times).
+// `bookingIds` are their bookings (so a new name shows everywhere); `unassignIds` are jobs the new
+// hours can no longer cover, which go back to "needs a cleaner". Throws on failure.
+export async function updateCleanerDetails(id, fields, { approved, bookingIds = [], unassignIds = [] } = {}) {
+  const nameChanged = 'fullName' in fields;
+  if (useMemory) {
+    memPatch('cleanerApplications', id, fields);
+    bookingIds.forEach((b) => {
+      if (unassignIds.includes(b)) memPatch('bookings', b, { cleanerId: null, cleanerName: null });
+      else if (nameChanged) memPatch('bookings', b, { cleanerName: fields.fullName });
+    });
+    return;
+  }
+  const batch = writeBatch(db);
+  batch.update(doc(collection(db, 'cleanerApplications'), id), { ...fields, updatedAt: serverTimestamp() });
+  if (approved) {
+    batch.set(availabilityRef(id), { days: fields.days || [], timeBlocks: fields.timeBlocks || [] });
+  }
+  bookingIds.forEach((b) => {
+    if (unassignIds.includes(b)) {
+      batch.update(doc(collection(db, 'bookings'), b), { cleanerId: null, cleanerName: null });
+      batch.set(busyRef(b), { cleanerId: null }, { merge: true });
+    } else if (nameChanged) {
+      batch.update(doc(collection(db, 'bookings'), b), { cleanerName: fields.fullName });
+    }
+  });
+  await batch.commit();
+}
+
 // Admin action: permanently removes a booking / application. Throws on failure.
 export async function deleteBooking(id) {
   if (useMemory) {
