@@ -4,26 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme/theme';
 import GlassCard from './GlassCard';
 
-const SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+// Photon does search-as-you-type on OpenStreetMap data; Nominatim confirms a street exists
+// when the map has the street but not that particular house number.
+const PHOTON_URL = 'https://photon.komoot.io/api/';
+const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const DEBOUNCE_MS = 400;
 const MIN_QUERY_LENGTH = 3;
 
-// Ottawa's city boundary, roughly (left,top,right,bottom = minLon,maxLat,maxLon,minLat).
-const OTTAWA_VIEWBOX = '-76.3556,45.5376,-75.2465,44.9617';
-
-const PROVINCE_ABBR = {
-  ontario: 'ON',
-  quebec: 'QC',
-  'nova scotia': 'NS',
-  'new brunswick': 'NB',
-  manitoba: 'MB',
-  'british columbia': 'BC',
-  'prince edward island': 'PE',
-  saskatchewan: 'SK',
-  alberta: 'AB',
-  newfoundland: 'NL',
-  'newfoundland and labrador': 'NL',
-};
+// Ottawa's city boundary, roughly (minLon,minLat,maxLon,maxLat).
+const OTTAWA_BBOX = '-76.3556,44.9617,-75.2465,45.5376';
 
 const STREET_SUFFIX_ABBR = {
   street: 'St',
@@ -55,8 +44,29 @@ const DIRECTION_ABBR = {
   southwest: 'SW',
 };
 
+// Places that have a street number but are not somebody's home (shops, hotels, stations…).
+const NON_HOME_KEYS = new Set([
+  'shop',
+  'amenity',
+  'tourism',
+  'office',
+  'leisure',
+  'historic',
+  'railway',
+  'man_made',
+  'bridge',
+  'craft',
+  'healthcare',
+  'aeroway',
+  'public_transport',
+  'waterway',
+  'natural',
+  'landuse',
+  'highway',
+]);
+
 function abbreviateStreet(road) {
-  const words = road.split(' ');
+  const words = road.trim().split(/\s+/);
   let suffixIndex = words.length - 1;
 
   const lastWord = words[suffixIndex].toLowerCase();
@@ -75,43 +85,115 @@ function abbreviateStreet(road) {
   return words.join(' ');
 }
 
-function isInOttawa(result) {
-  const city = result.address?.city || result.address?.town || result.address?.village || result.address?.municipality;
-  if (city) return city.toLowerCase() === 'ottawa';
-  return result.display_name.toLowerCase().includes('ottawa');
+// "48 elgin" -> { number: '48', street: 'elgin' }. Addresses in Canada read number first, then street.
+function parseTyped(text) {
+  const m = /^\s*(\d+[A-Za-z]?)\s+(.+?)\s*$/.exec(text || '');
+  return m ? { number: m[1], street: m[2] } : { number: '', street: (text || '').trim() };
 }
 
-function getStreetLine(result) {
-  const a = result.address || {};
-  if (a.house_number && a.road) return `${a.house_number} ${abbreviateStreet(a.road)}`;
-  if (a.road) return abbreviateStreet(a.road);
-  return result.display_name.split(',')[0];
+const plain = (text) =>
+  text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .split(/[\s-]+/)
+    .filter(Boolean);
+
+const GENERIC_WORDS = new Set([
+  ...Object.keys(STREET_SUFFIX_ABBR),
+  ...Object.values(STREET_SUFFIX_ABBR).map((v) => v.toLowerCase()),
+  ...Object.keys(DIRECTION_ABBR),
+  ...Object.values(DIRECTION_ABBR).map((v) => v.toLowerCase()),
+]);
+
+// Does the street on the map fit what was typed? Every typed word (other than "street", "west"…)
+// must be the start of a word in the street's name, so "ban" fits "Bank Street" but "zzqxv" fits nothing.
+function streetMatches(typedStreet, road) {
+  const wanted = plain(typedStreet).filter((w) => !GENERIC_WORDS.has(w));
+  if (wanted.length === 0) return true;
+  const have = plain(road);
+  return wanted.every((w) => have.some((h) => h.startsWith(w)));
 }
 
-function getLocality(result) {
-  const a = result.address || {};
-  return a.suburb || a.neighbourhood || a.hamlet || a.village || a.town || a.city || '';
+// One clean shape for every suggestion, however it was found.
+function makeAddress({ number, road, district, postcode, approximate }) {
+  const streetLine = `${number} ${abbreviateStreet(road)}`;
+  const area = [district && district !== 'Ottawa' ? district : '', 'Ottawa'].filter(Boolean).join(', ');
+  const province = ['ON', postcode].filter(Boolean).join(' ');
+  return {
+    key: `${number}|${road}|${postcode || ''}`.toLowerCase(),
+    road,
+    streetLine,
+    areaLine: `${area}, ${province}`,
+    // Mailing style: "123 Bank St, Ottawa, ON K1P 5N5"
+    full: `${streetLine}, Ottawa, ${province}`,
+    approximate: !!approximate,
+  };
 }
 
-function getProvinceAbbr(result) {
-  const state = result.address?.state;
-  if (!state) return '';
-  return PROVINCE_ABBR[state.toLowerCase()] || state;
+function fromPhoton(feature) {
+  const p = feature.properties || {};
+  const isOttawa = (p.city || p.county || '').toLowerCase() === 'ottawa';
+  const isHome = !NON_HOME_KEYS.has(p.osm_key);
+  if (!isOttawa || !isHome || !p.housenumber || !p.street) return null;
+  return makeAddress({ number: p.housenumber, road: p.street, district: p.district, postcode: p.postcode });
 }
 
-function getAreaLine(result) {
-  const locality = getLocality(result);
-  const province = getProvinceAbbr(result);
-  const postcode = result.address?.postcode || '';
-  return [locality, [province, postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+// The map knows the street but not this house number: offer the address as typed.
+async function streetFallback(typed, signal) {
+  if (!typed.number || typed.street.length < 3) return null;
+  const params = new URLSearchParams({
+    format: 'json',
+    street: `${typed.number} ${typed.street}`,
+    city: 'Ottawa',
+    state: 'Ontario',
+    country: 'Canada',
+    addressdetails: '1',
+    limit: '5',
+  });
+  const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, { signal, headers: { Accept: 'application/json' } });
+  const rows = await response.json();
+  const road = rows.find(
+    (r) =>
+      r.address?.road &&
+      (r.address.city || '').toLowerCase() === 'ottawa' &&
+      streetMatches(typed.street, r.address.road),
+  );
+  if (!road) return null;
+  return makeAddress({
+    number: typed.number,
+    road: road.address.road,
+    district: road.address.suburb,
+    approximate: true,
+  });
 }
 
-function getFullAddress(result) {
-  const street = getStreetLine(result);
-  const locality = getLocality(result);
-  const province = getProvinceAbbr(result);
-  const postcode = result.address?.postcode || '';
-  return [street, locality, [province, postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+async function searchAddresses(text, signal) {
+  const typed = parseTyped(text);
+  const params = new URLSearchParams({ q: text, limit: '15', lang: 'en', bbox: OTTAWA_BBOX });
+  const response = await fetch(`${PHOTON_URL}?${params.toString()}`, { signal, headers: { Accept: 'application/json' } });
+  const data = await response.json();
+
+  const seen = new Set();
+  let results = (data.features || [])
+    .map(fromPhoton)
+    .filter((a) => {
+      if (!a || seen.has(a.key)) return false;
+      seen.add(a.key);
+      return true;
+    });
+
+  // Photon guesses when it can't find a match, so keep only what was actually typed: the same
+  // street number (not "1204" for "123") and a street whose name starts with the words typed.
+  if (typed.number) results = results.filter((a) => a.streetLine.startsWith(`${typed.number} `));
+  results = results.filter((a) => streetMatches(typed.street, a.road));
+
+  if (results.length === 0 && typed.number) {
+    const fallback = await streetFallback(typed, signal);
+    if (fallback) results = [fallback];
+  }
+  return results.slice(0, 5);
 }
 
 export default function AddressAutocomplete({ value, onChangeText, onValidChange, placeholder }) {
@@ -143,24 +225,11 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
       abortRef.current = controller;
 
       try {
-        const params = new URLSearchParams({
-          format: 'json',
-          q: value,
-          addressdetails: '1',
-          limit: '10',
-          countrycodes: 'ca',
-          viewbox: OTTAWA_VIEWBOX,
-          bounded: '1',
-        });
-        const response = await fetch(`${SEARCH_URL}?${params.toString()}`, {
-          signal: controller.signal,
-          headers: { Accept: 'application/json' },
-        });
-        const results = await response.json();
-        setSuggestions(results.filter(isInOttawa).slice(0, 5));
+        setSuggestions(await searchAddresses(value, controller.signal));
+        setLoading(false);
       } catch (err) {
-        if (err.name !== 'AbortError') setSuggestions([]);
-      } finally {
+        if (err.name === 'AbortError') return; // a newer search replaced this one
+        setSuggestions([]);
         setLoading(false);
       }
     }, DEBOUNCE_MS);
@@ -176,16 +245,17 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
     }
   };
 
-  const handleSelect = (result) => {
+  const handleSelect = (address) => {
     skipNextFetch.current = true;
-    onChangeText(getFullAddress(result));
+    onChangeText(address.full);
     setIsValid(true);
     onValidChange?.(true);
     setSuggestions([]);
     setFocused(false);
   };
 
-  const hasSearched = !loading && value.trim().length >= MIN_QUERY_LENGTH;
+  const typedNumber = parseTyped(value || '').number;
+  const hasSearched = !loading && (value || '').trim().length >= MIN_QUERY_LENGTH;
   const showDropdown = focused && (loading || suggestions.length > 0 || hasSearched);
   const showUnverifiedHint = !isValid && !focused && hasSearched;
 
@@ -200,6 +270,8 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
           onChangeText={handleTextChange}
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 150)}
+          autoCapitalize="words"
+          autoCorrect={false}
         />
         {isValid && (
           <View style={styles.validIcon}>
@@ -208,12 +280,8 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
         )}
       </View>
 
-      {isValid && (
-        <Text style={styles.validText}>Verified address</Text>
-      )}
-      {showUnverifiedHint && (
-        <Text style={styles.hintText}>Select an Ottawa address from the list to continue</Text>
-      )}
+      {isValid && <Text style={styles.validText}>Verified address</Text>}
+      {showUnverifiedHint && <Text style={styles.hintText}>Select an Ottawa address from the list to continue</Text>}
 
       {showDropdown && (
         <GlassCard style={styles.dropdown} intensity={50}>
@@ -225,23 +293,25 @@ export default function AddressAutocomplete({ value, onChangeText, onValidChange
               </View>
             ) : suggestions.length === 0 ? (
               <View style={styles.statusRow}>
-                <Text style={styles.statusText}>We only serve Ottawa right now — no matches found.</Text>
+                <Text style={styles.statusText}>
+                  {typedNumber
+                    ? 'No Ottawa address found. Check the street name (we only serve Ottawa).'
+                    : 'Start with the street number, like 123 Bank St.'}
+                </Text>
               </View>
             ) : (
               suggestions.map((item, index) => (
                 <Pressable
-                  key={item.place_id ?? index}
+                  key={item.key}
                   style={[styles.suggestionRow, index < suggestions.length - 1 && styles.suggestionRowBorder]}
                   onPress={() => handleSelect(item)}
                 >
                   <Text style={styles.suggestionStreet} numberOfLines={1}>
-                    {getStreetLine(item)}
+                    {item.streetLine}
                   </Text>
-                  {getAreaLine(item) ? (
-                    <Text style={styles.suggestionArea} numberOfLines={1}>
-                      {getAreaLine(item)}
-                    </Text>
-                  ) : null}
+                  <Text style={styles.suggestionArea} numberOfLines={1}>
+                    {item.areaLine}
+                  </Text>
                 </Pressable>
               ))
             )}
